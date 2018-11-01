@@ -1,9 +1,0 @@
-###
-# This header will be included in every command file.
-# The content of each command file will be run through eval.
-# Environment variable of interest:
-# - $FAKEROOT
-# - $sd # Source directory path
-# - $sdn # Directory name after source have been unpacked.
-###
-  
