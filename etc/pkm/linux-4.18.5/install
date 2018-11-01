@@ -1,0 +1,16 @@
+eval "make INSTALL_HDR_PATH=$FAKEROOT/$sdn headers_install"
+if [[ $? > 0 ]]; then
+    exit 1
+fi
+
+eval "find $FAKEROOT/$sdn/include \( -name .install -o -name ..install.cmd \) -delete"
+if [[ $? > 0 ]]; then
+    exit 2
+fi
+## This is done with implementation
+echo "cp -rv $FAKEROOT/$sdn/include/* /usr/include"
+if [[ $? > 0 ]]; then
+    exit 3
+fi
+
+

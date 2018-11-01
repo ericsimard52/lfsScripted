@@ -1,0 +1,3 @@
+eval "make DESTDIR=$FAKEROOT/$sdn install"
+if [[ $? > 0 ]]; then
+    echo ""
