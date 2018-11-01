@@ -14,7 +14,7 @@ declare buildDir
 declare MAKEFLAGS
 declare banner
 declare ld
-
+declare bypassImplement=1
 ###
 # There is too many log files. Implement debug level to reduce.
 # Log files
@@ -37,6 +37,12 @@ declare installCmdFile
 declare preImplementCmdFile
 declare postImplementCmdFile
 declare -a cmdFileList
+declare -a autoInstallCmdList
+
+function unloadPkg {
+    unset -v pkg sdnConf tf sdn hasBuildDir buildDir ld ext unpackCmd banner genConfigFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd autoInstallCmdList lf
+    bypassImplement=1
+}
 
 ###
 # Enumerate through commans stores in commands array
@@ -194,15 +200,94 @@ function unpack {
     log "Done" true
 }
 
+function requestHostBackup {
+    touch /root/pkgManager/backupNow
+    promptUser "I set the back flag, no inotify install here yet, Press enter to continue."
+    read u
+    if [ -f /root/pkgManager/backupNow ]; then
+        promptUser "WARN: back flag still present are you sure? Y/n"
+        read v
+        case v in
+            [Nn])
+                promptUser "There is no check after this, make sure you are ready. Press enter to continue."
+                read u
+                rm -v /root/pkgManager/backupNow
+                ;;
+            [Yy]|*)
+                rm -v /root/pkgManager/backupNow
+                ;;
+        esac
+    fi
+}
+
+function autoInstall {
+    i=0
+    while [[ $i < ${#cmdFileList[@]} ]]; do
+        count=`cat ${cmdFileList[$i]} | wc -l`
+        log "INFO: ${cmdFileList[$i]} has $count" true
+        if [[ $count > 0 ]]; then
+            log "INFO: Adding ${cmdFileList[$i]} to auto install list." true
+            autoInstallCmdList+=(${cmdFileList[$i]})
+        fi
+        ((i++))
+    done
+    promptUser "Do you want to start now?"
+    read y
+    case $y in
+        [nN])
+            return
+            ;;
+        [yY]|*)
+            runAutoInstall
+            ;;
+    esac
+}
+
+function runAutoInstall {
+    unpack
+    i=0
+    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
+        f=${autoInstallCmdList[$i]}
+        fbase=$(basename $f)
+        echo "$fbase"
+        if [ "$fbase" = "postImplement" ]; then
+            if [[ $bypassImplement > 0 ]]; then
+                log "INFO: Post Implement detected, running Implement first." true
+                implementPkg
+            else
+                log "INFO: Post Implement detected, and bypass Implement is active, proceeding." true
+            fi
+        fi
+        log "INFO: Sourcing $f." true
+        evalPrompt $fbase
+        res=$?
+        if [[ $res > 0 ]]; then
+            log "ERROR: Error sourcing $f." true
+            return $res
+        fi
+        ((i++))
+    done
+    cleanup
+    promptUser "Do you want to request backup from the host? Y/n"
+    read u
+    case $u in
+        [nN])
+            return 0
+            ;;
+        [yY]|*)
+            requestHostBackup
+            ;;
+    esac
+    return 0
+}
+
 function sourceScript {
     c=$1
     log "INFO: Sourcing: $c" true
     source $c
     res=$?
     log "INFO: Sourced $c returned: $res" true
-    if [[ $res > 0 ]]; then
-        evalError $c
-    fi
+    return $res
 }
 
 function implementPkg {
@@ -226,7 +311,7 @@ function cleanup {
         exit 1
     fi
 
-    rm -vfr $sdn | tee -a $ld/$lf 2>> $ld/$lf
+    rm -fr $sdn | tee -a $ld/$lf 2>> $ld/$lf
     popd > /dev/null 2>&1
 
     promptUser "Remove Fakeroot Files? y/N"
@@ -234,7 +319,7 @@ function cleanup {
     case $x in
         [yY])
             log "INFO: Removing fakeroot." true
-            rmFR="rm -vfr $FAKEROOT/$sdn"
+            rmFR="rm -fr $FAKEROOT/$sdn"
             log "INFO: Running Cmd: $rmFR" true
             eval $rmFr
             ;;
@@ -302,10 +387,7 @@ function setCmdFileList {
 # Preparation of a new package
 ###
 function prepPkg {
-    if [[ ! "$pkg" == "" ]]; then
-        echo "Unloading previous package from memory."
-        unloadPkg
-    fi
+    unloadPkg
 
     promptUser "Package name?"
     read -e pkg
@@ -413,17 +495,11 @@ function prepPkg {
             evalError $tc
             return
         fi
-        log "INFO: Add configuration headers to $fn" true
-        cat $confBase/configHeaders > $fn
         ((i++))
     done
 
     log "INFO: Configuration created." true
 
-}
-
-function unloadPkg {
-    unset -v pkg sdnConf tf sdn hasBuildDir banner genConfigFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd
 }
 
 function loadPkg {
@@ -528,7 +604,7 @@ function loadPkg {
 function dumpEnv {
     printf "sd: $sd
 tf: $tf
-sdnConf: $sdnconf
+sdnConf: $sdnConf
 ext: $ext
 hasBuildDir: $hasBuildDir
 MAKEFLAGS: $MAKEFLAGS
@@ -539,138 +615,148 @@ function evalError {
     log "ERROR: Error during eval: $1" true
 }
 
+function evalPrompt {
+    case $1 in
+        list\ commands)
+            listCommands
+            ;;
+        unpack)
+            unpack
+            ;;
+        preconfig)
+            if [ $hasBuildDir -lt 1 ]; then
+                pushd $sd/$sdn > /dev/null
+            else
+                pushd $buildDir >/dev/null
+            fi
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${preconfigCmdFile}"
+            log "INFO: Running pre-config scripts" true
+            log "file:$ld/${lf[2]}"
+            popd > /dev/null 2>&1
+            ;;
+        config)
+            log "INFO: Running config scripts" true
+            log "file:$ld/${lf[3]}"
+            pushd $buildDir
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${configCmdFile}"
+            popd > /dev/null 2>&1
+            ;;
+        compile)
+            log "INFO: Running compile scripts" true
+            log "file:$ld/${lf[4]}"
+            pushd $buildDir > /dev/null
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${compileCmdFile}"
+            popd > /dev/null 2>&1
+            ;;
+        check)
+            log "INFO: Running check scripts" true
+            log "file:$ld/${lf[5]}"
+            pushd $buildDir > /dev/null
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${checkCmdFile}"
+            popd > /dev/null 2>&1
+            ;;
+        preinstall)
+            log "INFO: Running PreInstall scripts" true
+            log "file:$ld/${lf[6]}"
+            pushd $buildDir > /dev/null
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${preInstallCmdFile}"
+            popd > /dev/null 2>&1
+            ;;
+        install)
+            log "INFO: Running install scripts" true
+            log "INFO: FakeRoot: $FAKEROOT/$sdn" true
+            log "file:$ld/${lf[7]}"
+            pushd $buildDir > /dev/null
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${installCmdFile}"
+            popd > /dev/null 2>&1
+            ;;
+        preimplement)
+            log "INFO: Running preImplement scripts" true
+            log "file:$ld/${lf[8]}"
+            pushd $buildDir > /dev/null
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${preImplementCmdFile}"
+            popd > /dev/null 2>&1
+            ;;
+        implement)
+            implementPkg
+            ;;
+        postimplement)
+            log "INFO Running PostImplement scripts" true
+            log "file:$ld/${lf[10]}"
+            pushd $buildDir > /dev/null
+            if [[ $? > 0 ]]; then
+                log "FATAL: pushd to $buildDir failed." true
+                exit 1
+            fi
+            sourceScript "${postImplementCmdFile}"
+            popd > /dev/null 2>&1
+            ;;
+        autoinstall)
+            autoInstall
+            ;;
+        cleanup)
+            cleanup
+            ;;
+        preppkg)
+            prepPkg
+            ;;
+        loadpkg)
+            loadPkg
+            ;;
+        unloadpkg)
+            unloadPkg
+            ;;
+        backup)
+            requestHostBackup
+            ;;
+        dump\ env)
+            dumpEnv
+            ;;
+        quit)
+            echo "Quitting"
+            CURSTATE=1
+            ;;
+        *)
+            echo "Unknown command"
+            ;;
+    esac
+
+}
+
 function prompt {
     while [[ $CURSTATE == [0] ]]; do
         echo -e $banner
         promptUser "Input."
         read -e command
-        case $command in
-            list\ commands)
-                listCommands
-                ;;
-            unpack)
-                unpack
-                ;;
-            preconfig)
-                if [ $hasBuildDir -lt 1 ]; then
-                    pushd $sd/$sdn > /dev/null
-                else
-                    pushd $buildDir >/dev/null
-                fi
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "$preConfigCmdFile"
-                log "INFO: Running pre-config scripts" true
-                log "file:$ld/${lf[2]}"
-                popd > /dev/null 2>&1
-                ;;
-            config)
-                log "INFO: Running config scripts" true
-                log "file:$ld/${lf[3]}"
-                pushd $buildDir > /dev/null
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "${configCmdFile}"
-                popd > /dev/null 2>&1
-                ;;
-            compile)
-                log "INFO: Running compile scripts" true
-                log "file:$ld/${lf[4]}"
-                pushd $buildDir > /dev/null
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "compile"
-                popd > /dev/null 2>&1
-                ;;
-            check)
-                log "INFO: Running check scripts" true
-                log "file:$ld/${lf[5]}"
-                pushd $buildDir > /dev/null
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "check"
-                popd > /dev/null 2>&1
-                ;;
-            preinstall)
-                log "INFO: Running PreInstall scripts" true
-                log "file:$ld/${lf[6]}"
-                pushd $buildDir > /dev/null
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "preInstall"
-                popd > /dev/null 2>&1
-                ;;
-            install)
-                log "INFO: Running install scripts" true
-                log "INFO: FakeRoot: $FAKEROOT/$sdn" tru
-                log "file:$ld/${lf[7]}"
-                pushd $buildDir > /dev/null
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "install"
-                popd > /dev/null 2>&1
-                ;;
-            preimplement)
-                log "INFO: Running preImplement scripts" true
-                log "file:$ld/${lf[8]}"
-                pushd $buildDir > /dev/null
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "preImplement"
-                popd > /dev/null 2>&1
-                ;;
-            implement)
-                implementPkg
-                ;;
-            postimplement)
-                log "INFO Running PostImplement scripts" true
-                log "file:$ld/${lf[10]}"
-                pushd $buildDir > /dev/null
-                if [[ $? > 0 ]]; then
-                    log "FATAL: pushd to $buildDir failed." true
-                    exit 1
-                fi
-                sourceScript "postImplement"
-                popd > /dev/null 2>&1
-                ;;
-            cleanup)
-                cleanup
-                ;;
-            preppkg)
-                prepPkg
-                ;;
-            loadpkg)
-                loadPkg
-                ;;
-            unloadpkg)
-                unloadPkg
-                ;;
-            dump\ env)
-                dumpEnv
-                ;;
-            quit)
-                echo "Quitting"
-                CURSTATE=1
-                ;;
-            *)
-                echo "Unknown command"
-                ;;
-        esac
-
+        evalPrompt $command
     done
 }
 

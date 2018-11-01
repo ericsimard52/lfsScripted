@@ -1,0 +1,4 @@
+eval "make check"
+if [[ $? > 0 ]]; then
+    log "ERROR: Error while make check" true
+fi
