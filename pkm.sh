@@ -1,6 +1,11 @@
 #!/bin/bash
 
-declare sd="/sources"
+declare buildTmpMode=0 # Set to 0 to build tmp tool chain by default
+declare lfsScripted="/home/tech/Git/lfsScripted" # Set to lfsScripted absolute path.
+
+declare LFS # Used in buildTmpMode
+declare configFile
+declare sd
 declare tf
 declare sdn
 declare sdnConf
@@ -8,11 +13,12 @@ declare ext
 declare unpackCmd
 declare hasBuildDir
 declare buildDir
-declare MAKEFLAGS="-j 3"
+declare MAKEFLAGS
 declare banner
 declare ld
-declare bypassImplement=1
+declare bypassImplement
 declare isImplemented=1
+
 ###
 # There is too many log files. Implement debug level to reduce.
 # Log files
@@ -20,9 +26,9 @@ declare isImplemented=1
 # 6 = PreInstall; 7 = Install; 8 = PreImplement; 9 = Implement; 10 = PostImplement
 ###
 declare -a lf=() # Will contain a list of all log files.
-declare FAKEROOT="/usr/Fakeroot"
+declare FAKEROOT
 declare CURSTATE=0 # Set to 1 to exit program succesfully
-declare confBase="/etc/pkm"
+declare confBase
 
 # Config files
 declare genConfigFile
@@ -37,11 +43,55 @@ declare postImplementCmdFile
 declare -a cmdFileList
 declare -a autoInstallCmdList
 
+###
+# Switch between mode to build tmp tool chain and mode to build system
+###
+
+function switchMode {
+    if [[ $buildTmpMode > 0 ]]; then # Turning build tmp tool chain mode on
+        buildTmpMode=0
+        setConfigFile
+        readConfig
+    else
+        buildTmpMode=1
+        setConfigFile
+        readConfig
+    fi
+}
+
+function setConfigFile {
+    if [[ $buildTmpMode == 0 ]]; then # Build tmp tool chain mode on
+        configFile="$lfsScripted/etc/pkm/tmpToolChain/pkm.conf"
+    else
+        configFile="$lfsScripted/etc/pkm/pkm.conf"
+    fi
+    log "INFO: Config file: $configFile" t
+}
+
+function readConfig {
+    if [ ! -f $configFile ]; then
+        touch $configFile
+    fi
+    while read -r line; do
+        IFS=':' read -ra PARAM <<< "$line"
+        case "${PARAM[0]}" in
+            sd) sd=${PARAM[1]};;
+            MAKEFLAGS) MAKEFLAGS=${PARAM[1]};;
+            FAKEROOT) FAKEROOT=${PARAM[1]};;
+            bypassImplement) bypassImplement=${PARAM[1]};;
+            LFS) lfs=${PARAM[1]};;
+            confBase) confBase=${PARAM[1]};;
+            *) echo "Unknow params: ${PARAM[0]}";;
+        esac
+        unset IFS
+    done < $configFile
+
+}
+
 function unloadPkg {
     unset -v pkg sdnConf tf sdn hasBuildDir buildDir ld ext unpackCmd banner genConfigFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd autoInstallCmdList lf
-    bypassImplement=1
     isImplemented=1
-    MAKEFLAGS="-j 3"
+    readConfig
 }
 
 ###
@@ -89,41 +139,6 @@ function setBanner {
     #log "INFO: Setting up banner." true
     #banner="Installing $sdn\nRun the following commands:\n"
     banner=""
-}
-
-function loadCommands {
-    log "ERROR: Call to loadCommands should not exists." true
-    return
-    log "INFO: Loading commands into variables." true
-    IFS=$'\n'
-    declare tmpLine
-    declare useTmp
-    while read line; do
-        preconfigCmd+=($line)
-    done < $preconfigCmdFile
-    while read line; do
-        configCmd+=($line)
-    done < $configCmdFile
-    while read line; do
-        compileCmd+=($line)
-    done < $compileCmdFile
-    while read line; do
-        checkCmd+=($line)
-    done < $checkCmdFile
-
-    while read line; do
-        preInstallCmd+=($line)
-    done < $preInstallCmdFile
-    while read line; do
-        installCmd+=($line)
-    done < $installCmdFile
-    while read line; do
-        preImplementCmd+=($line)
-    done < $preImplementCmdFile
-    while read line; do
-        postImplementCmd+=($line)
-    done < $postImplementCmdFile
-    unset IFS
 }
 
 # Log always logs to default log file
@@ -334,6 +349,9 @@ function cleanup {
     rm -fr $sdn | tee -a $ld/$lf 2>> $ld/$lf
     popd > /dev/null 2>&1
 
+    if [[ $buildTmpMode == 0 ]]; then
+        return
+    fi
     promptUser "Remove Fakeroot Files? y/N"
     read x
     case $x in
@@ -417,7 +435,7 @@ function prepPkg {
         log "ERROR: Package not found in $sd." true
         log "INFO: Searching for $pkg*." true
         declare -a foundFiles
-        for file in `find $sd/ -maxdepth 1 -type f -iname $pkg*.*`; do
+        for file in `find $sd -maxdepth 1 -type f -iname $pkg*.*`; do
             promptUser "FoundFiles: $file\n Use it? Y/n"
             read u
             case $u in
@@ -448,14 +466,14 @@ function prepPkg {
 
     ## Creating log directory
     ld="/var/log/pkm/$sdn"
-    log "INFO: Checking log directorie: $ld" true
+    log "INFO: Checking log directory: $ld" true
     if [ ! -d "$ld" ]; then
         log "INFO: Creating log directory" true
         md="mkdir -vp $ld"
         eval $md
         if [[ $? > 0 ]]; then
             log "FATAL: Error creating log directory" true
-            exit 1
+            return 1
         fi
     fi
 
@@ -622,13 +640,17 @@ function loadPkg {
 }
 
 function dumpEnv {
-    printf "sd: $sd
+    printf "buildTmpMode: $buildTmpMode
+sd: $sd
 tf: $tf
 sdnConf: $sdnConf
 ext: $ext
 hasBuildDir: $hasBuildDir
 MAKEFLAGS: $MAKEFLAGS
-buildDir: $buildDir\n"
+buildDir: $buildDir
+LFS: $LFS
+configFile: $configFile
+confBase: $confBase\n"
 }
 
 function evalError {
@@ -637,7 +659,7 @@ function evalError {
 
 function evalPrompt {
     case $1 in
-        list\ commands)
+        listcommands)
             listCommands
             ;;
         unpack)
@@ -726,6 +748,10 @@ function evalPrompt {
             popd > /dev/null 2>&1
             ;;
         implement)
+            if [[ $buildTmpMode == 0 ]]; then
+                log "ERROR: Implement is disabled in building tmp toolchain mode." t
+                return
+            fi
             implementPkg
             ;;
         postimplement)
@@ -757,8 +783,14 @@ function evalPrompt {
         backup)
             requestHostBackup
             ;;
-        dump\ env)
+        dumpenv)
             dumpEnv
+            ;;
+        switchmode)
+            switchMode
+            ;;
+        reload)
+            readConfig
             ;;
         quit)
             echo "Quitting"
@@ -780,6 +812,8 @@ function prompt {
     done
 }
 
-export MAKEFLAGS
 
+setConfigFile
+readConfig
+export MAKEFLAGS
 prompt
