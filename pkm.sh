@@ -1,8 +1,5 @@
 #!/bin/bash
 
-###
-# Better variable naming.
-###
 declare sd="/sources"
 declare tf
 declare sdn
@@ -11,7 +8,7 @@ declare ext
 declare unpackCmd
 declare hasBuildDir
 declare buildDir
-declare MAKEFLAGS
+declare MAKEFLAGS="-j 3"
 declare banner
 declare ld
 declare bypassImplement=1
@@ -44,6 +41,7 @@ function unloadPkg {
     unset -v pkg sdnConf tf sdn hasBuildDir buildDir ld ext unpackCmd banner genConfigFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd autoInstallCmdList lf
     bypassImplement=1
     isImplemented=1
+    MAKEFLAGS="-j 3"
 }
 
 ###
