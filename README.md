@@ -61,6 +61,6 @@ That's it, your ready to use it.
 	Setup iwatch or inotify to detect file creation: /root/pkgManager/backupNow
 	When the file is detected, execute backup, then remove /root/pkgManager/backupNow
 	This command line can be used to backup (You would need to adjust the paths and filename):
-```
+```shell
 tar -cvf /root/LFS/LFS.tar --one-file-system --exclude-backups --exclude=/root/LFS/Disk/{dev,run,sys,proc}  /root/LFS/Disk/
 ```
