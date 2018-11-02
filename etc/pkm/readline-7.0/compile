@@ -1,0 +1,4 @@
+eval "make SHLIB_LIBS=\"-L/tools/lib -lncursesw\""
+if [[ $? > 0 ]]; then
+    return 1
+fi

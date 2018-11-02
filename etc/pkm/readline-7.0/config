@@ -1,0 +1,7 @@
+eval "./configure --prefix=/usr    \
+            --disable-static \
+            --docdir=/usr/share/doc/readline-7.0"
+if [[ $? > 0 ]]; then
+  return 1
+fi
+

@@ -1,0 +1,10 @@
+eval "mv -v /usr/bin/passwd /bin"
+if [[ $? > 0 ]]; then
+  return 1
+fi
+
+log "INFO: Enable shadow password and group" true
+pwconv
+grpconv
+log "INFO: Setting up root passwd" true
+passwd
