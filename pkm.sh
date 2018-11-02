@@ -15,6 +15,7 @@ declare MAKEFLAGS
 declare banner
 declare ld
 declare bypassImplement=1
+declare isImplemented=1
 ###
 # There is too many log files. Implement debug level to reduce.
 # Log files
@@ -42,6 +43,7 @@ declare -a autoInstallCmdList
 function unloadPkg {
     unset -v pkg sdnConf tf sdn hasBuildDir buildDir ld ext unpackCmd banner genConfigFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd autoInstallCmdList lf
     bypassImplement=1
+    isImplemented=1
 }
 
 ###
@@ -254,6 +256,7 @@ function runAutoInstall {
             if [[ $bypassImplement > 0 ]]; then
                 log "INFO: Post Implement detected, running Implement first." true
                 implementPkg
+                isImplemented=0
             else
                 log "INFO: Post Implement detected, and bypass Implement is active, proceeding." true
             fi
@@ -265,8 +268,27 @@ function runAutoInstall {
             log "ERROR: Error sourcing $f." true
             return $res
         fi
+        if [ "$fbase" = "check" ]; then
+            promptUser "Just finish checks, verify it. Do I keep going? Y/n"
+            read t
+            case $t in
+                [Nn])
+                    return 1
+                    ;;
+                [Yy]|*)
+                    ((i++))
+                    continue
+                    ;;
+            esac
+        fi
+
         ((i++))
     done
+    if [[ $isImplemented > 0 ]]; then
+        log "INFO: Implementing pkg." t
+        implementPkg
+        isImplemented=0
+    fi
     cleanup
     promptUser "Do you want to request backup from the host? Y/n"
     read u
