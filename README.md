@@ -6,7 +6,7 @@ lfsScripted can be used from chapter 6, with Linux headers.
 This is by no means a fully automated tool. You still need to follow the instruction for LFS. 
 
 ## To Install
- - Clone or download this repo in root home folder of your LFS partition.
+ - Clone or download this repo in /root/pkgManager of your LFS partition.
  - Copy directory etc/pkm to /etc
  - Create directory: /var/log/pkm
 That's it, your ready to use it.
@@ -54,3 +54,13 @@ That's it, your ready to use it.
 	Print outs environment variables. Good for debug.
 #### backup
 	Sets the flags to request a host backup.
+
+## How to implement automated backup on the host system?
+	I have to make the script more portable and then I will add it to this repo.
+	In short, create a backup script on the host system.
+	Setup iwatch or inotify to detect file creation: /root/pkgManager/backupNow
+	When the file is detected, execute backup, then remove /root/pkgManager/backupNow
+	This command line can be used to backup (You would need to adjust the paths and filename):
+```
+tar -cvf /root/LFS/LFS.tar --one-file-system --exclude-backups --exclude=/root/LFS/Disk/{dev,run,sys,proc}  /root/LFS/Disk/
+```
