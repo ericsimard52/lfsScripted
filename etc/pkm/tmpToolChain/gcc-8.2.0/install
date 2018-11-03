@@ -1,4 +1,24 @@
-eval "make install"
-if [[ $? > 0 ]]; then
-    return 1
-fi
+function pass1 {
+    eval "make install"
+    if [[ $? > 0 ]]; then
+        return 1
+    fi
+}
+
+function installStdc {
+    eval "make install"
+    if [[ $? > 0 ]]; then
+        return 1
+    fi
+}
+
+promptUser "Which pass are we running? 1, [L]ibstdc++"
+read u
+case $u in
+    1)
+        pass1
+        ;;
+    [Ll])
+        installStdc
+        ;;
+esac

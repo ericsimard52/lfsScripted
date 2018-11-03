@@ -1,3 +1,18 @@
-case $(uname -m) in
-  x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
+function pass1 {
+    case $(uname -m) in
+        x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
+    esac
+}
+function pass2 {
+    echo "Nothing to do for pass 2."
+}
+promptUser "Which Pass? 1, 2"
+read u
+case $u in
+    1)
+        pass1
+        ;;
+    2)
+        pass2
+        ;;
 esac

@@ -1,4 +1,26 @@
-eval "make"
-if [[ $? > 0 ]]; then
-  return 1
-fi
+function compilePass1 {
+    eval "make"
+    if [[ $? > 0 ]]; then
+        return 1
+    fi
+}
+function compilePass2 {
+    eval "make"
+    if [[ $? > 0 ]]; then
+        return 2
+    fi
+}
+
+promptUser "Which Pass? 1, 2"
+read u
+case $u in
+    1)
+        compilePass1
+        ;;
+    2)
+        compilePass2
+        ;;
+    *)
+        log "ERROR: Unknown choice."
+        ;;
+esac

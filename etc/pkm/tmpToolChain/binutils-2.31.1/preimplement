@@ -1,0 +1,18 @@
+function pass2 {
+    make -C ld clean
+    make -C ld LIB_PATH=/usr/lib:/lib
+    cp -v ld/ld-new /tools/bin
+}
+
+promptUser "Only needed for pass 2, are you running pass 2? N/y"
+read u
+case $u in
+    [Yy])
+        log "INFO: Pass 2 selected, running pre-implement"
+        pass2
+        ;;
+    [Nn]|*)
+        log "INFO: Pass 1 seleted, continue;"
+        return
+        ;;
+esac

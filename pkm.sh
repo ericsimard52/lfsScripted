@@ -236,14 +236,10 @@ function requestHostBackup {
 }
 
 function autoInstall {
+    log "INFO: Will be running the following tasks:"
     i=0
-    while [[ $i < ${#cmdFileList[@]} ]]; do
-        count=`cat ${cmdFileList[$i]} | wc -l`
-        log "INFO: ${cmdFileList[$i]} has $count" true
-        if [[ $count > 0 ]]; then
-            log "INFO: Adding ${cmdFileList[$i]} to auto install list." true
-            autoInstallCmdList+=(${cmdFileList[$i]})
-        fi
+    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
+        echo "${autoInstallCmdList[$i]}"
         ((i++))
     done
     promptUser "Do you want to start now?"
@@ -259,7 +255,6 @@ function autoInstall {
 }
 
 function runAutoInstall {
-    unpack
     i=0
     while [[ $i < ${#autoInstallCmdList[@]} ]]; do
         f=${autoInstallCmdList[$i]}
@@ -554,7 +549,7 @@ function loadPkg {
     if [ ! -d $confBase/$pkg ]; then
         echo "Configuration not found for $pkg"
         declare -a foundFiles
-        for file in `find $confBase -type d -iname $pkg*.*`; do
+        for file in `find $confBase -type d -iname $pkg*`; do
             promptUser "FoundFiles: $file\n Use it? Y/n"
             read u
             case $u in
@@ -591,7 +586,16 @@ function loadPkg {
             sdn) sdn=${PARAM[1]};;
             sd) sd=${PARAM[1]};;
             hasBuildDir) hasBuildDir=${PARAM[1]};;
-            *) echo "Unknow params";;
+            tasks)
+                IFS=',' read -ra TASK <<< "${PARAM[1]}"
+                x=0
+                while [[ $x < ${#TASK[@]} ]]; do
+                    autoInstallCmdList+=(${TASK[$x]})
+                    ((x++))
+                done
+                IFS=':'
+                ;;
+            *) echo "Unknow params: ${PARAMS[1]}";;
         esac
         unset IFS
     done < $genConfigFile
@@ -653,6 +657,14 @@ configFile: $configFile
 confBase: $confBase\n"
 }
 
+function listTask {
+    i=0
+    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
+        echo -n "${autoInstallCmdList[$i]}, "
+        ((i++))
+    done
+    echo ""
+}
 function evalError {
     log "ERROR: Error during eval: $1" true
 }
@@ -767,6 +779,9 @@ function evalPrompt {
             ;;
         autoinstall)
             autoInstall
+            ;;
+        listtask)
+            listTask
             ;;
         cleanup)
             cleanup
