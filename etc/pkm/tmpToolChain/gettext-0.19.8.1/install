@@ -1,0 +1,4 @@
+pushd gettext-tools
+  cp -v src/{msgfmt,msgmerge,xgettext} /tools/bin
+popd
+  

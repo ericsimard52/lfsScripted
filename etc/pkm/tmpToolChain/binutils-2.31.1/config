@@ -1,10 +1,10 @@
 function configPass1 {
-    eval "../configure --prefix=/tools            \
-             --with-sysroot=$LFS        \
-             --with-lib-path=/tools/lib \
-             --target=$LFS_TGT          \
-             --disable-nls              \
-             --disable-werror"
+    ../configure --prefix=/tools            \
+                 --with-sysroot=$LFS        \
+                 --with-lib-path=/tools/lib \
+                 --target=$LFS_TGT          \
+                 --disable-nls              \
+                 --disable-werror
     if [[ $? > 0 ]]; then
         return 1
     fi

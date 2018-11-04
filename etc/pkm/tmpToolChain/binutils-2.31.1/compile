@@ -1,11 +1,11 @@
 function compilePass1 {
-    eval "make"
+    make
     if [[ $? > 0 ]]; then
         return 1
     fi
 }
 function compilePass2 {
-    eval "make"
+    make
     if [[ $? > 0 ]]; then
         return 2
     fi

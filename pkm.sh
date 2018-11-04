@@ -1,6 +1,6 @@
 #!/bin/bash
 
-declare buildTmpMode=0 # Set to 0 to build tmp tool chain by default
+declare buildTmpMode=1 # Set to 0 to build tmp tool chain by default
 declare lfsScripted="/home/tech/Git/lfsScripted" # Set to lfsScripted absolute path.
 
 declare LFS # Used in buildTmpMode
@@ -106,7 +106,7 @@ function listCommands {
     case $x in
         preconfig | all)
             c="cat $preConfigCmdFile"
-            eval $c | tee -a 2>> $ld/$lf[0]
+            eval $c | tee -a 2>> $ld/${lf[0]}
             ;;
         config | all)
             i=0
@@ -168,16 +168,16 @@ function log {
             ;;
     esac
     MSG=$COLOR$M$MSGEND
-
     if [[ $2 != "" ]]; then
-        if [[ $lf == "" ]]; then
+        if [[ ${lf[0]} == "" ]]; then
             echo -e "NOLOG-"$MSG
             return
         fi
-        echo $M |tee -a $ld/${lf[0]}
+        echo $M >> $ld/${lf[0]}
+        echo -e $MSG
         return
     fi
-    if [[ $lf == "" ]]; then
+    if [[ ${lf[0]} == "" ]]; then
         echo -e "NOLOG-"$MSG
     fi
     echo $M >> $ld/${lf[0]}
@@ -329,7 +329,7 @@ function implementPkg {
 
     log "INFO: Setting file in system" true
     log "file:$ld/${lf[9]}"
-    tar cvf - . | (cd / ; tar vxf - ) |tee -a $ld/${lf[9]} 2>> $ld/$lf
+    tar cvf - . | (cd / ; tar vxf - ) |tee -a $ld/${lf[9]} 2>> $ld/${lf[0]}
     popd > /dev/null 2>&1
 }
 
@@ -341,7 +341,7 @@ function cleanup {
         exit 1
     fi
 
-    rm -fr $sdn | tee -a $ld/$lf 2>> $ld/$lf
+    rm -fr $sdn | tee -a $ld/${lf[1]} 2>> $ld/${lf[0]}
     popd > /dev/null 2>&1
 
     if [[ $buildTmpMode == 0 ]]; then
@@ -479,7 +479,7 @@ function prepPkg {
     else
         md="mkdir -vp $sdnConf/"
         log "INFO: Creating package configuration directory: $md" true
-        eval $md | tee -a $ld/${lf[0]} 2>> $ld/$lf[0]
+        eval $md | tee -a $ld/${lf[0]} 2>> $ld/${lf[0]}
         if [[ $? > 0 ]]; then
             evalError $cmd
             return
@@ -504,7 +504,7 @@ function prepPkg {
     conf="tf:$tf\nsdn:$sdn\nhasBuildDir:$hasBuildDir"
     genConfigFile="$sdnConf/$sdn.conf"
     ct="echo -e \"$conf\" > $genConfigFile"
-    eval $ct | tee -a $ld/${lf[0]} 2>> $ld/$lf[0]
+    eval $ct | tee -a $ld/${lf[0]} 2>> $ld/${lf[0]}
     if [[ $? > 0 ]]; then
         evalError $ct
         return
@@ -523,7 +523,7 @@ function prepPkg {
         fi
         log "INFO: Creating $fn"
         tc="touch $fn && chmod +x $fn"
-        eval $tc | tee -a $ld/${lf[0]} 2>> $ld/$lf[0]
+        eval $tc | tee -a $ld/${lf[0]} 2>> $ld/${lf[0]}
         if [[ $? > 0 ]]; then
             evalError $tc
             return

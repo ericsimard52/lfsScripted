@@ -1,23 +1,32 @@
+function pass2 {
+    make
+    if [[ $? > 0 ]]; then
+        return 1
+    fi
+}
 function pass1 {
-    eval "make"
+    make
     if [[ $? > 0 ]]; then
         return 1
     fi
 }
 
 function makeStdc {
-    eval "make"
+    make
     if [[ $? > 0 ]]; then
         return 1
     fi
 }
 
 
-promptUser "Which pass are we running? 1, [L]ibstdc++"
+promptUser "Which pass are we running? 1, 2, [L]ibstdc++"
 read u
 case $u in
     1)
         pass1
+        ;;
+    2)
+        pass2
         ;;
     [Ll])
         makeStdc

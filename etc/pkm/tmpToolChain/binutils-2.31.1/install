@@ -1,11 +1,11 @@
 function installPass1 {
-    eval "make install"
+    make install
     if [[ $? > 0 ]]; then
         return 1
     fi
 }
 function installPass2 {
-    eval "make install"
+    make install
     if [[ $? > 0 ]]; then
         return 2
     fi
