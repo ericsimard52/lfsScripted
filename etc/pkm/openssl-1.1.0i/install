@@ -1,0 +1,2 @@
+sed -i '/INSTALL_LIBS/s/libcrypto.a libssl.a//' Makefile
+make DESTDIR=$FAKEROOT/$sdn MANSUFFIX=ssl install

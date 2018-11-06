@@ -1,8 +1,4 @@
-eval "mv -v /usr/bin/passwd /bin"
-if [[ $? > 0 ]]; then
-  return 1
-fi
-
+mv -v /usr/bin/passwd /bin
 log "INFO: Enable shadow password and group" true
 pwconv
 grpconv

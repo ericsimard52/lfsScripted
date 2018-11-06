@@ -1,12 +1,9 @@
-eval "../configure --prefix=/usr       \
+../configure --prefix=/usr       \
              --enable-gold       \
              --enable-ld=default \
              --enable-plugins    \
              --enable-shared     \
              --disable-werror    \
              --enable-64-bit-bfd \
-             --with-system-zlib"
-if [[ $? > 0 ]]; then
-  return 1
-fi
+             --with-system-zlib
   

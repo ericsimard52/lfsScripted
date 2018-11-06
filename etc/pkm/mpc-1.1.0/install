@@ -1,4 +1,2 @@
-eval "make DESTDIR=$FAKEROOT/$sdn  install && make DESTDIR=$FAKEROOT/$sdn install-html"
-if [[ $? > 0 ]]; then
-    return 1
-fi
+make DESTDIR=$FAKEROOT/$sdn  install && make DESTDIR=$FAKEROOT/$sdn install-html
+

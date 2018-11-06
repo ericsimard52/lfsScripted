@@ -1,0 +1,2 @@
+make DESTDIR=$FAKEROOT/$sdn  install
+  

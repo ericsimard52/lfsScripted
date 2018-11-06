@@ -1,0 +1,3 @@
+make DESTDIR=$FAKEROOT/$sdn install
+install -v -m644 doc/*.{html,png,css} $FAKEROOT/$sdn/usr/share/doc/expat-2.2.6
+  

@@ -1,0 +1,1 @@
+sed -i 's|find:=${BINDIR}|find:=/bin|' /usr/bin/updatedb

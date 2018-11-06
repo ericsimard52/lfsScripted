@@ -1,7 +1,3 @@
-eval "echo \"quit\" | ./bc/bc -l Test/checklib.b > /tmp/bcCheck.log"
-if [[ $? > 0 ]]; then
-    return 1
-fi
-
+echo "quit" | ./bc/bc -l Test/checklib.b > /tmp/bcCheck.log
 cat /tmp/bcCheck.log
 

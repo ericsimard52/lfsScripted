@@ -1,0 +1,3 @@
+make DESTDIR=$FAKEROOT/$sdn install
+chmod -v 0755 $FAKEROOT/$sdn/usr/lib/preloadable_libintl.so
+  

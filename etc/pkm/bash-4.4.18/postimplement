@@ -1,0 +1,4 @@
+mv -vf /usr/bin/bash /bin
+
+echo "Quit pkm and Run the newly compiled bash program (replacing the one that is currently being executed): exec /bin/bash --login +h"
+  

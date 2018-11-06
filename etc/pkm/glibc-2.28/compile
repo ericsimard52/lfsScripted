@@ -1,4 +1,4 @@
-eval "make"
+make
 if [[ $? > 0 ]]; then
     log "ERROR: Error while make" true
     return $?

@@ -1,0 +1,4 @@
+make DESTDIR=$FAKEROOT/$sdn install
+chmod -v 755 $FAKEROOT/$sdn/usr/lib/libpython3.7m.so
+chmod -v 755 $FAKEROOT/$sdn/usr/lib/libpython3.so
+  

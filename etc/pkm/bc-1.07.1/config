@@ -1,8 +1,6 @@
-eval "./configure --prefix=/usr           \
+./configure --prefix=/usr           \
             --with-readline         \
             --mandir=/usr/share/man \
-            --infodir=/usr/share/info"
-if [[ $? > 0 ]]; then
-    return 1
-fi
+            --infodir=/usr/share/info
+
 

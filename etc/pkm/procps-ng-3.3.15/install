@@ -1,0 +1,5 @@
+make DESTDIR=$FAKEROOT/$sdn install
+install -vdm755 $FAKEROOT/$sdn/lib
+mv -v $FAKEROOT/$sdn/usr/lib/libprocps.so.* $FAKEROOT/$sdn/lib
+ln -sfv $FAKEROOT/$sdn../../lib/$(readlink /usr/lib/libprocps.so) $FAKEROOT/$sdn/usr/lib/libprocps.so
+  

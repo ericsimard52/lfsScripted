@@ -1,0 +1,5 @@
+make DESTDIR=$FAKEROOT/$sdn install
+make DESTDIR=$FAKEROOT/$sdn install-libs
+chmod -v u+w $FAKEROOT/$sdn/usr/lib/{libcom_err,libe2p,libext2fs,libss}.a
+gunzip -v $FAKEROOT/$sdn/usr/share/info/libext2fs.info.gz
+install-info --dir-file=/usr/share/info/dir $FAKEROOT/$sdn/usr/share/info/libext2fs.info

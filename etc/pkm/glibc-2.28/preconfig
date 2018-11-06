@@ -1,20 +1,20 @@
 log "INFO: Applying patch."
-eval "patch -Np1 -i ../glibc-2.28-fhs-1.patch"
+patch -Np1 -i ../glibc-2.28-fhs-1.patch
 if [[ $? > 0 ]]; then
     log "ERROR: Error applying patch: $?" true
-    return 1
+    res=$?
 fi
 
 log "INFO: Create a compatibility symlink to avoid references to /tools in our final glibc." true
-eval "ln -sfv /tools/lib/gcc /usr/lib"
+ln -sfv /tools/lib/gcc /usr/lib
 if [[ $? > 0 ]]; then
     log "ERROR: Error creating link: $?" true
-    return 2
+    res=$?
 fi
 
 log "INFO: Determine the GCC include directory and create a symlink for LSB compliance. Additionally, for x86_64, create a compatibility symlink required for the dynamic loader to function correctly." true
 
-eval "case $(uname -m) in
+case $(uname -m) in
     i?86)    GCC_INCDIR=/usr/lib/gcc/$(uname -m)-pc-linux-gnu/8.2.0/include
             ln -sfv ld-linux.so.2 /lib/ld-lsb.so.3
     ;;
@@ -23,16 +23,14 @@ eval "case $(uname -m) in
             ln -sfv ../lib/ld-linux-x86-64.so.2 /lib64/ld-lsb-x86-64.so.3
     ;;
 esac
-"
+
 if [[ $? > 0 ]]; then
     log "ERROR: Determining GCC include directory: $?" true
-    return 3
+    res=$?
 fi
 
 log "INFO: Remove a file that may be left over from a previous build attempt." true
-eval "rm -f /usr/include/limits.h"
-if [[ $? > 0 ]]; then
-    log "ERROR: Removing file: $?" true
-    return 4
+if [[ -f /usr/inlcude/limits.h ]]; then
+    rm -fv /usr/include/limits.h
 fi
 

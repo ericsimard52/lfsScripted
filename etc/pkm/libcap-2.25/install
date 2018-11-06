@@ -1,0 +1,1 @@
+make RAISE_SETFCAP=no lib=lib DESTDIR=$FAKEROOT/$sdn prefix=/usr install

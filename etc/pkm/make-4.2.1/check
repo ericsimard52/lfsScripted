@@ -1,0 +1,2 @@
+make PERL5LIB=$PWD/tests/ check
+  

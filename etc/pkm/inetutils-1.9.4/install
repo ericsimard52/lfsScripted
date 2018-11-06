@@ -1,0 +1,4 @@
+make DESTDIR=$FAKEROOT/$sdn install
+mv -v $FAKEROOT/$sdn/usr/bin/{hostname,ping,ping6,traceroute} $FAKEROOT/$sdn/bin
+mv -v $FAKEROOT/$sdn/usr/bin/ifconfig $FAKEROOT/$sdn/sbin
+  

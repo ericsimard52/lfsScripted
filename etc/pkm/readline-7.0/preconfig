@@ -1,9 +1,2 @@
-eval "sed -i '/MV.*old/d' Makefile.in"
-if [[ $? > 0 ]]; then
-    return 1
-fi
-
-eval "sed -i '/{OLDSUFF}/c:' support/shlib-install"
-if [[ $? > 0 ]]; then
-    return 2
-fi
+sed -i '/MV.*old/d' Makefile.in
+sed -i '/{OLDSUFF}/c:' support/shlib-install

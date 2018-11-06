@@ -1,5 +1,2 @@
-eval "./configure --sysconfdir=/etc --with-group-name-max-length=32"
-if [[ $? > 0 ]]; then
-  return 1
-fi
+./configure --sysconfdir=/etc --with-group-name-max-length=32
   

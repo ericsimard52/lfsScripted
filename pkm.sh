@@ -1,7 +1,7 @@
 #!/bin/bash
 
 declare buildTmpMode=1 # Set to 0 to build tmp tool chain by default
-declare lfsScripted="/home/tech/Git/lfsScripted" # Set to lfsScripted absolute path.
+declare lfsScripted="/root/pkgManager" # Set to lfsScripted absolute path.
 
 declare LFS # Used in buildTmpMode
 declare configFile
@@ -63,7 +63,7 @@ function setConfigFile {
     if [[ $buildTmpMode == 0 ]]; then # Build tmp tool chain mode on
         configFile="$lfsScripted/etc/pkm/tmpToolChain/pkm.conf"
     else
-        configFile="$lfsScripted/etc/pkm/pkm.conf"
+        configFile="/etc/pkm/pkm.conf" #We assume chroot environment here, otherwise prepend $lfsScripted to use local config
     fi
     log "INFO: Config file: $configFile" t
 }
@@ -216,7 +216,17 @@ function unpack {
 }
 
 function requestHostBackup {
-    touch /root/pkgManager/backupNow
+    declare tag
+    if [[ "$1" == "" ]]; then
+        promptUser "Backup Tag: "
+        read tag
+    else
+        tag=$1
+    fi
+
+    cat > /root/pkgManager/backupNow <<EOF
+name:$tag
+EOF
     promptUser "I set the back flag, no inotify install here yet, Press enter to continue."
     read u
     if [ -f /root/pkgManager/backupNow ]; then
@@ -255,6 +265,17 @@ function autoInstall {
 }
 
 function runAutoInstall {
+    promptUser "Do you want to request backup from the host? Y/n"
+    read u
+    case $u in
+        [nN])
+            return 0
+            ;;
+        [yY]|*)
+            requestHostBackup "PRE-$sdn"
+            ;;
+    esac
+
     i=0
     while [[ $i < ${#autoInstallCmdList[@]} ]]; do
         f=${autoInstallCmdList[$i]}
@@ -305,7 +326,7 @@ function runAutoInstall {
             return 0
             ;;
         [yY]|*)
-            requestHostBackup
+            requestHostBackup "POST-$sdn"
             ;;
     esac
     return 0
@@ -352,9 +373,7 @@ function cleanup {
     case $x in
         [yY])
             log "INFO: Removing fakeroot." true
-            rmFR="rm -fr $FAKEROOT/$sdn"
-            log "INFO: Running Cmd: $rmFR" true
-            eval $rmFr
+            rm -fvr $FAKEROOT/$sdn
             ;;
         [nN] | *)
             log "INFO: Leaving fakeroot in place." true
@@ -549,7 +568,7 @@ function loadPkg {
     if [ ! -d $confBase/$pkg ]; then
         echo "Configuration not found for $pkg"
         declare -a foundFiles
-        for file in `find $confBase -type d -iname $pkg*`; do
+        for file in `find $confBase -maxdepth 1 -type d -iname $pkg*`; do
             promptUser "FoundFiles: $file\n Use it? Y/n"
             read u
             case $u in

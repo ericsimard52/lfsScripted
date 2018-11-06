@@ -1,8 +1,3 @@
-eval "sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c"
-if [[ $? > 0 ]]; then
-    return 1
-fi
-eval "echo \"#define _IO_IN_BACKUP 0x100\" >> lib/stdio-impl.h"
-if [[ $? > 0 ]]; then
-    return 2
-fi
+sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c
+echo "#define _IO_IN_BACKUP 0x100" >> lib/stdio-impl.h
+

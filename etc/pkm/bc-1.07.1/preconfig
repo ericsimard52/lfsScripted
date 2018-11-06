@@ -10,18 +10,8 @@ sed -e '$ s/$/0}/' \
     -i libmath.h
 EOF
 
-eval "ln -sv /tools/lib/libncursesw.so.6 /usr/lib/libncursesw.so.6"
-if [[ $? > 0 ]]; then
-    return 1
-fi
+ln -sv /tools/lib/libncursesw.so.6 /usr/lib/libncursesw.so.6
+ln -sfv libncurses.so.6 /usr/lib/libncurses.so
+sed -i -e '/flex/s/as_fn_error/: ;; # &/' configure
 
-eval "ln -sfv libncurses.so.6 /usr/lib/libncurses.so"
-if [[ $? > 0 ]]; then
-    return 2
-fi
-
-eval "sed -i -e '/flex/s/as_fn_error/: ;; # &/' configure"
-if [[ $? > 0 ]]; then
-    return 2
-fi
 

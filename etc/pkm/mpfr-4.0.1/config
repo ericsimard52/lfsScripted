@@ -1,7 +1,4 @@
-eval "./configure --prefix=/usr        \
+./configure --prefix=/usr        \
             --disable-static     \
             --enable-thread-safe \
-            --docdir=/usr/share/doc/mpfr-4.0.1"
-if [[ $? > 0 ]]; then
-    return 1
-fi
+            --docdir=/usr/share/doc/mpfr-4.0.1
