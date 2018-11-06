@@ -2,7 +2,7 @@
 A scripted installation interface for Linux From Scratch
 lfsScripted provides a console interface to compile LFS.
 Compilation instruction are sourced from files in /etc/pkm/{package}/
-lfsScripted can be used from chapter 6, with Linux headers.
+It provides a tmpToolChain mode to build the temporary toolchain.
 This is by no means a fully automated tool. You still need to follow the instruction for LFS. 
 
 ## To Install
