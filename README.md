@@ -4,6 +4,9 @@ lfsScripted provides a console interface to compile LFS.
 Compilation instruction are sourced from files in /etc/pkm/{package}/
 It provides a tmpToolChain mode to build the temporary toolchain.
 This is by no means a fully automated tool. You still need to follow the instruction for LFS. 
+This tool is good to build the tmp  toolchain and the base system.
+I am now working on a separate shell scripts to use as a package manager.
+I will upload to a new git when the system is online.
 
 ## To Install
  - Clone or download this repo in /root/pkgManager of your LFS partition.
