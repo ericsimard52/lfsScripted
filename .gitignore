@@ -2,4 +2,4 @@
 *~
 # Hidden files
 .*
-var/log/pkm/*
+# var/log/pkm/*
