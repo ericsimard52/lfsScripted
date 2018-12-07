@@ -1,4 +1,0 @@
-eval "make DESTDIR=$FAKEROOT/$sdn install"
-if [[ $? > 0 ]]; then
-    exit 1
-fi

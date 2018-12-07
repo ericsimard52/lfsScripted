@@ -1,2 +1,0 @@
-LANG=en_US.UTF-8 make -j1 test &> vim-test.log
-  

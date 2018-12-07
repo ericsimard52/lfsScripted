@@ -1,3 +1,0 @@
-make DESTDIR=$FAKEROOT/$sdn -C libelf install
-install -vm644 config/libelf.pc $FAKEROOT/$sdn/usr/lib/pkgconfig
-  

@@ -1,3 +1,0 @@
-pushd unix
-./configure --prefix=/tools
-popd

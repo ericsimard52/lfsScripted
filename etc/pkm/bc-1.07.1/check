@@ -1,3 +1,0 @@
-echo "quit" | ./bc/bc -l Test/checklib.b > /tmp/bcCheck.log
-cat /tmp/bcCheck.log
-

@@ -1,3 +1,0 @@
-make DESTDIR=$FAKEROOT/$sdn install
-make TEXMF=$FAKEROOT/$sdn/usr/share/texmf install-tex
- 

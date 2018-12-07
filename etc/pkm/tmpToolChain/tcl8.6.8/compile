@@ -1,4 +1,0 @@
-pushd unix
-  make
-popd
-  

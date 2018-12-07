@@ -1,4 +1,0 @@
-pushd unix
-  TZ=UTC make test
-popd
-  

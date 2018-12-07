@@ -1,5 +1,0 @@
-install -vdm755 $FAKEROOT/$sdn/usr/bin
-install -vm755 ninja $FAKEROOT/$sdn/usr/bin/
-install -vDm644 misc/bash-completion $FAKEROOT/$sdn/usr/share/bash-completion/completions/ninja
-install -vDm644 misc/zsh-completion  $FAKEROOT/$sdn/usr/share/zsh/site-functions/_ninja
-  

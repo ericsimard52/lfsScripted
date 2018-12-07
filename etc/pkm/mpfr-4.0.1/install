@@ -1,2 +1,0 @@
-make DESTDIR=$FAKEROOT/$sdn install && make DESTDIR=$FAKEROOT/$sdn install-html
-

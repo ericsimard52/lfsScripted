@@ -1,3 +1,0 @@
-
-make  ROOT=$FAKEROOT/$sdn -C src install
-  

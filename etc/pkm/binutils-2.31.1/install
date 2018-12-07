@@ -1,2 +1,0 @@
-make DESTDIR=$FAKEROOT/$sdn tooldir=/usr install
-  
