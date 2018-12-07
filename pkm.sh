@@ -224,22 +224,22 @@ function requestHostBackup {
         tag=$1
     fi
 
-    cat > /root/pkgManager/backupNow <<EOF
+    cat > $lfsScripted/backupNow <<EOF
 name:$tag
 EOF
     promptUser "I set the back flag, no inotify install here yet, Press enter to continue."
     read u
-    if [ -f /root/pkgManager/backupNow ]; then
+    if [ -f $lfsScripted/backupNow ]; then
         promptUser "WARN: back flag still present are you sure? Y/n"
         read v
         case v in
             [Nn])
                 promptUser "There is no check after this, make sure you are ready. Press enter to continue."
                 read u
-                rm -v /root/pkgManager/backupNow
+                rm -v $lfsScripted/backupNow
                 ;;
             [Yy]|*)
-                rm -v /root/pkgManager/backupNow
+                rm -v $lfsScripted/backupNow
                 ;;
         esac
     fi
