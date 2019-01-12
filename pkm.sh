@@ -3,13 +3,14 @@
 #
 declare devBase="/home/tech/Git/lfsScripted"
 declare configFile="$devBase/etc/pkm.conf"
-declare sd td sdn sdnConf pkg ext hasBuildDir buildDir confBase bypassImplement wgetUrl LFS lfsUserHome
+declare sd td sdn sdnConf pkg ext hasBuildDir buildDir confBase wgetUrl LFS lfsUserHome
 declare -a partitionDev partitionName partitionMount partitionFs
 declare unpackCmd
 declare MAKEFLAGS
 declare DEBUG=0 # 0=OFF, 1= ON, but not to stdout, send all debug to log file. 2= send to stdout and logfile
 declare genLogFile pkgLogFile impLogFile errLogFile
 declare genLogFD pkgLogFD impLogFD errLogFD #File descriptor input only
+declare bypassImplement=0 # Implementation bypassed in temp toolchain, we do not use fakeroot.
 declare isImplemented=1 # This changes to 0 when implementation is done.
 declare CURSTATE=0 # Set to 1 to exit program succesfully
 
@@ -20,12 +21,8 @@ declare -a cmdFileList
 declare -a autoInstallCmdList
 
 function singleton {
-    if [ ! -d $devBase/var/run/pkm ]; then
-        log "NULL|FATAL|Directory $devBase/var/run/pkm does not exists. Do you need to run installPkm?" t
-        return 1
-    fi
     if [ -f $devBase/var/run/pkm/pkm.lock ]; then
-        log "NULL|FATAL|Pkm is already running or has not quit properly, in that case, remove /var/run/pkm/pkm.lock" t
+        log "NULL|FATAL|Pkm is already running or has not quit properly, in that case, remove $devBase/var/run/pkm/pkm.lock" t
         return 1
     fi
     processCmd "sudo -u pkm touch $devBase/var/run/pkm/pkm.lock"
@@ -437,7 +434,7 @@ function log {
     case "${PARTS[1]}" in
         INFO)
             LEVEL=INFO
-            COLOR="\e[34m"
+            COLOR="\e[35m"
             ;;
         WARNING)
             LEVEL=WARNING
