@@ -7,46 +7,30 @@ LFS installation scripts.
 4. Execute pkm.sh
 
 Note, keep this isolated in its own directory. a similar structure to root directory is established for convenience.
-etc/pkm.conf
-Format: var:val  <---No space in between & case sensitive
-debug:{0,1,2} Off, Log file only, Log file and stdout
-partitionName:root boot swap <--space separated, will be converted to array & KEEP SWAP LAST
-partitionMount:/ /boot <-- Notice no entry for swap
-partitionDev:/dev/xxx /dev/xxx /dev/xxx <-- Provide partition for swap
-partitionFs:ext4 ext3 ext4 <-- NOTHING FOR SWAP
-LFS:/path/to/LFS
-lfsUserHome=/path/to/lfs/user/home
-sd:/path/to/sources/file/storage
-MAKEFLAGS:-j3 <-- provide your own.
-confBase:/path/to/lfsScript/etc
-### Log file section
-A file descriptor will be create pointing to value set here,
-This lets you send logs to another system, or even the host through localhost by provide a socket path
-
 
 When pkm.sh is started, it proceed with reading the config file, export MAKEFLAGS.
 After the configuration is loaded, we do a startup check.
-. Check $LFS mount point exists, if not create it.
-. Go through partitionName
-  . If swap, activate it.
-  . If mount point does not exists, create it in $LFS/mountPoint
-  . Mount the partition
-. Check if sd (source directory) exists, if not create it.
-. Check if we have a wget.list, if not we fetch it from linucfromscratch.org
-. Same for md5sum
-. We then check each pkg, if we don't have it, download it.
-. Now we do our md5sum check
-. Check if $LFS/tools exists if not create it
-. Check for $LFS/tool -> / link
-. Check if we have lfs group <-- group and user setting are hardcoded for now.
-. Check if we have lfs user
-. Create group and user if needed and set password
-. We fix ownership of source directory $LFS & $LFS/tools
-. Check kfs user environment.
-  . create .bash_profile if not exists
-  . create .bashrc if not exists
-. Log subsystem is started.
-. Prompt is given to user.
+ Check $LFS mount point exists, if not create it.
+- Go through partitionName
+  - If swap, activate it.
+  - If mount point does not exists, create it in $LFS/mountPoint
+  - Mount the partition
+- Check if sd (source directory) exists, if not create it.
+- Check if we have a wget.list, if not we fetch it from linucfromscratch.org
+- Same for md5sum
+- We then check each pkg, if we don't have it, download it.
+- Now we do our md5sum check
+- Check if $LFS/tools exists if not create it
+- Check for $LFS/tool -> / link
+- Check if we have lfs group <-- group and user setting are hardcoded for now.
+- Check if we have lfs user
+- Create group and user if needed and set password
+- We fix ownership of source directory $LFS & $LFS/tools
+- Check kfs user environment.
+  - create .bash_profile if not exists
+  - create .bashrc if not exists
+- Log subsystem is started.
+- Prompt is given to user.
 
 Commands: (may not all be fully implemented)
   - listcommands
