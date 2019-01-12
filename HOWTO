@@ -1,0 +1,12 @@
+How to compile LFS with this?
+After cloning the repo into your home directory, proceed with seting up the partitioning.
+When building manually, you set partitions and users later, but those are parts of pkm startup check.
+User lfs does not need to be there, pkm will create it.
+Partition needs to be ready to use, filesystem created on it.
+They do not need to be mounted, pkm will take care of this.
+The mount point will be created if needed.
+
+After pkm.conf is set, you can start pkm.sh as your normal user.
+Your password will be requested by sudo when needed.
+When pkm is ready, proceed with loading versionCheck pkg: loadpkg <RET> vers <RET>
+pkm will do a search for vers* and ask you to confirm what it found.

@@ -144,4 +144,4 @@ fi
 processCmd "rm -fv dummy.c dummy"
 
 log "GEN|INFO|If the requirements are good. Proceed to the next step." t
-log "GEN|INFO|Create your partition and file system and update pkm.conf." t
+
