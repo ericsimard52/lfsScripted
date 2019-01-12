@@ -1,4 +1,5 @@
 # lfs_pkm
+First, read through this, then head to the wiki for a step by step.
 LFS installation scripts.
 
 1. Clone this repo in your home directory.
