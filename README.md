@@ -8,9 +8,9 @@ LFS installation scripts.
 
 Note, keep this isolated in its own directory. a similar structure to root directory is established for convenience.
 
-When pkm.sh is started, it proceed with reading the config file, export MAKEFLAGS.
+When pkm.sh is started, it proceed with reading the config file and export MAKEFLAGS.
 After the configuration is loaded, we do a startup check.
- Check $LFS mount point exists, if not create it.
+- Check $LFS mount point exists, if not create it.
 - Go through partitionName
   - If swap, activate it.
   - If mount point does not exists, create it in $LFS/mountPoint
