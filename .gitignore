@@ -3,3 +3,5 @@
 # Hidden files
 .*
 var/log/pkm/*
+*.org
+  
