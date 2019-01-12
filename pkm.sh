@@ -303,7 +303,11 @@ function getVersion {
 }
 
 function vercomp {
-    log  "GEN|INFO|Comparing version: $1 $2" t t
+    declare cp='>='; ## Default comparator if not provided
+    if [[ $3 ]]; then
+        cp=$3
+    fi
+    log  "GEN|INFO|Comparing version: $1 $cp $2" t t
     if [[ $1 == $2 ]]; then
         return 0
     fi
@@ -348,11 +352,39 @@ function vercomp {
 
     log "GEN|INFO|iv: $iv nv: $nv" t t
     unset ivCount nvCount nvPad ivPad i
-    if [ $iv -lt $nv ]; then
-        return 1
-    fi
+    case "$cp" in
+        ">")
+            if [[ $iv > $nv ]]; then
+                return 0
+            fi
+            ;;
+        "<")
+            if [[ $iv < $nv ]]; then
+                return 0
+            fi
+            ;;
+        "="|"==")
+            if [[ $iv == $nv ]]; then
+                return 0
+            fi
+            ;;
+        ">=")
+            if (( $iv >= $nv )); then
+                return 0
+            fi
+            ;;
+        "<=")
+            if (( $iv <= $nv )); then
+                return 0
+            fi
+            ;;
+        *)
+            log "{GEN,ERR}|ERROR|Unknown comparator in checkVersion." t
+            return 1
+            ;;
+    esac
 
-    return 0
+    return 1
 }
 
 ###
@@ -398,7 +430,7 @@ function dumpEnv {
 # DEBUGONLY When set instruct to process log only when debug is on.
 ###
 function log {
-    if [ $3 ] && [ $DEBUG = 0 ]; then
+    if [ $3 ] && [[ $DEBUG == 0 ]]; then
         return
     fi
     declare LEVEL COLOR MSG M CALLER
@@ -501,8 +533,6 @@ function log {
     done
     unset IFS FDs LEVEL COLOR MSG M MSGEND i CALLER
 }
-
-log 'hello' t
 
 function fetchPkg {
     while read -r line; do
@@ -932,7 +962,6 @@ function processCmd {
     for part in $@; do
         cmd=$cmd" "$part
     done
-    log "GEN|INFO|Processing command: $cmd" t t
     if [[ $DEBUG = 0 ]]; then
         $cmd 2>&1 >/dev/null
     elif [[ $DEBUG = 1 ]]; then

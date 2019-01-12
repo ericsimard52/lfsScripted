@@ -1,67 +1,99 @@
 export LC_ALL=C
 
-declare -a reqList=('bash' 'ld' 'bison' 'bzip2' 'diff' 'find' 'gawk' 'gcc' 'g++' 'ldd' 'grep' 'gzip' 'm4' 'make' 'patch' 'perl' 'sed' 'tar' 'makeinfo' 'xz' 'chown')
-declare -a reqVer=('3.2' '2.25' '2.7' '1.0.4' '2.8.1' '4.2.31' '4.0.1' '4.9' '8.2.0' '2.11' '2.5.1a' '1.3.12' '1.4.10' '4.0' '2.5.4' '5.8.8' '4.1.5' '1.2.2' '4.7' '5.0.0' '6.9')
+# Some of those package are not the package name, but a file that can be called to get the version number.
+declare -a reqList=('bash >= 3.2'
+                    'ld >= 2.25'
+                    'bison >= 2.7'
+                    'bzip2 >= 1.0.4'
+                    'diff >=2.8.1'
+                    'find >=4.2.31'
+                    'gawk >=4.0.1'
+                    'gcc >= 4.9'
+                    'g++ <= 8.2.0'
+                    'ldd >= 2.11'
+                    'grep >= 2.5.1a'
+                    'gzip >= 1.3.12'
+                    'm4 >= 1.4.10'
+                    'make >= 4.0'
+                    'patch >= 2.5.4'
+                    'perl >= 5.8.8'
+                    'sed >= 4.1.5'
+                    'tar >= 1.2.2'
+                    'makeinfo >= 4.7'
+                    'xz >= 5.0.0'
+                    'chown >= 6.9')
 declare -a missReq=()
 declare -a badVer=()
 
 v=0
 reqLen=${#reqList[@]}
 allGood=0
+allGoodVersion=0
+
+## Proceed to check if program is installed, if yes, check version
+## Perl version standard is problematic, don't trust it.
+## Perl 5.28 is newer then 5.8 (20 > 8). This don't work well here....
+## Don't know how to fix.
 while [ $v -lt $reqLen ]; do
-    log "GEN|INFO|Checking if "${reqList[$v]}" is installed." t
-    checkInstalled ${reqList[$v]}
+    read -r -a reqParts <<< ${reqList[$v]}
+    file="${reqParts[0]}"
+    cpr="${reqParts[1]}"
+    reqv="${reqParts[2]}"
+    log "GEN|INFO|Checking if $file is installed." t
+    checkInstalled $file
     if [[ $? > 0 ]]; then
-        log "GEN|ERROR|"${reqList[$v]}" not found." t
-        missReq+=(${reqList[$v]})
+        log "GEN|ERROR|"$file" not found." t
+        missReq+=($file)
         allGood=1
+    else
+        log "GEN|INFO|"$file" found, checking version." t
+        declare ver
+        getVersion  $file ver
+        ## PERL HACK
+        if [[ "$file" == "perl" ]]; then
+            log "GEN|WARNING|Perl version found: $ver. Needed: $reqv.\nValidate version manually" t
+            ((v++))
+            continue
+        fi
+        log "GEN|INFO|Got: $ver" t t
+        vercomp $ver $reqv $cpr
+        if [[ $? > 0 ]]; then
+            log "GEN|ERROR|${reqList[$v]}  version is no good, $rv needed." t
+            badVer+=($file)
+            allGoodVersion=1
+        else
+            log "GEN|INFO|"$file" version OK!" t
+        fi
+
     fi
     ((v++))
 done
+
+## Check array of missing items.
 if [[ $allGood > 0 ]]; then
     for r in ${missReq[@]}; do
         log "GEN|ERROR|"$r" required and not found." t
     done
-    log "GEN|FATAL|Requirement are not met, please fix before continuing." t
-    return 1
+    log "GEN|FATAL|Requirement are not met, some packages are not installed. Please fix before continuing." t
 fi
 
-v=0
-reqLen=${#reqList[@]}
-allGood=0
-
-while [ $v -lt $reqLen ]; do
-    ri=${reqList[$v]}
-    rv=${reqVer[$v]}
-    declare ver
-    log "GEN|INFO|Checking version of $ri" t
-    getVersion  $ri ver
-    log "GEN|INFO|Got: $ver"
-    vercomp $ver $rv
-    if [[ $? > 0 ]]; then
-        log "GEN|ERROR|${reqList[$v]}  version is no good, $rv needed." t
-        badVer+=($ri'=>'$ver',needed=>'$rv)
-        allGood=1
-    else
-        log "GEN|INFO|"${reqList[$v]}" version OK!" t
-    fi
-    ((v++))
-done
-
-if [[ $allGood > 0 ]]; then
+# Check array of bad version items.
+if [[ $allGoodVersion > 0 ]]; then
     for r in ${badVer[@]}; do
-        log "GEN|ERROR|"$r t
+        log "GEN|ERROR|"$r" version is not good." t
     done
-    log "GEN|FATAL|Requirement are not met, please fix before continuing." t
+    log "GEN|FATAL|Requirement are not met, some packages have a bad version. Please fix before continuing." t
+    log "GEN|WARNING|Perl version schema is a little problematic.\n5.28 is a later version then 5.8 (20 is bigger the 8), but this does not fit well in the version check function.\nDo not trust perl version check."
+fi
+if [[ $allGood > 1 ]]; then
     return 1
 fi
 
+## Check sh link to bash
 MYSH=$(readlink -f /bin/sh)
 echo "/bin/sh -> $MYSH"
 echo $MYSH | grep -q bash || log "GEN|ERROR|ERROR: /bin/sh does not point to bash" t
 unset MYSH
-return 1
-
 
 
 linuxVer=`cat /proc/version |egrep -o "[0-9].[0-9][0-9].[0-9]" |head -n1`
@@ -73,6 +105,7 @@ else
     log "GEN|INFO|Linux version OK!." t
 fi
 
+## Checking yacc
 if [ -h /usr/bin/yacc ]; then
     log "GEN|INFO|/usr/bin/yacc -> `readlink -f /usr/bin/yacc`" t
 elif [ -x /usr/bin/yacc ]; then
@@ -82,6 +115,7 @@ else
 fi
 
 
+## Checking awk
 if [ -h /usr/bin/awk ]; then
     awkLink="/usr/bin/awk -> `readlink -f /usr/bin/awk`"
     if [[ "$awkLink" = "/usr/bin/awk -> /usr/bin/gawk" ]]; then
@@ -109,6 +143,5 @@ else
 fi
 processCmd "rm -fv dummy.c dummy"
 
-log "GEN|INFO|If the requirements are good. Refer back to the manual: Building LFS in Stages." t
+log "GEN|INFO|If the requirements are good. Proceed to the next step." t
 log "GEN|INFO|Create your partition and file system and update pkm.conf." t
-
