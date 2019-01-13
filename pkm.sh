@@ -21,33 +21,44 @@ declare -a cmdFileList
 declare -a autoInstallCmdList
 
 function singleton {
+    grep -q lfs < /etc/passwd
+    if [[ $? < 1 ]];then
+        if [ $USER != "lfs" ]; then
+            echo "Wrapping up execution as lfs user"
+            su lfs -c $devBase/pkm.sh
+            echo "Returned from wrapper, quitting."
+            exit 0
+        fi
+    fi
     if [ -f $devBase/var/run/pkm/pkm.lock ]; then
-        log "NULL|FATAL|Pkm is already running or has not quit properly, in that case, remove $devBase/var/run/pkm/pkm.lock" t
+        echo "Pkm is already running or has not quit properly, in that case, remove $devBase/var/run/pkm/pkm.lock" t
         return 1
     fi
-    processCmd "sudo -u pkm touch $devBase/var/run/pkm/pkm.lock"
+    sudo touch $devBase/var/run/pkm/pkm.lock
+
+
 }
 
 function startLog {
     if [ ! -f $genLogFile ]; then
         log "NULL|INFO|Creating $genLogFile" t
-        sudo -u pkm touch $genLogFile
-        sudo -u pkm chmod 666 -v $genLogFile
+        touch $genLogFile
+         chmod 666 -v $genLogFile
     fi
     if [ ! -f $pkgLogFile ]; then
         log "NULL|INFO|Creating $pkgLogFile" t
-        sudo -u pkm touch $pkgLogFile
-        sudo -u pkm chmod 666 -v $pkgLogFile
+         touch $pkgLogFile
+         chmod 666 -v $pkgLogFile
     fi
     if [ ! -f $impLogFile ]; then
         log "NULL|INFO|Creating $impLogFile" t
-        sudo -u pkm touch $impLogFile
-        sudo -u pkm chmod 666 -v $impLogFile
+         touch $impLogFile
+         chmod 666 -v $impLogFile
     fi
     if [ ! -f $errLogFile ]; then
         log "NULL|INFO|Creating $errLogFile" t
-        sudo -u pkm touch $errLogFile
-        sudo -u pkm chmod 666 -v $errLogFile
+         touch $errLogFile
+         chmod 666 -v $errLogFile
     fi
     log "NULL|INFO|Creating file descriptor for logs" t t
     exec {genLogFD}>$genLogFile
@@ -199,12 +210,25 @@ function startupCheck {
         log "GEN|INFO|Checking for $fn" t t
         if [ ! -f $sd/$fn ]; then
             log "GEN|INFO|Not found, fetching." t t
-            sudo wget -v $line -O $sd/$fn
+            if [[ $DEBUG > 0 ]]; then
+                sudo wget -v $line -O $sd/$fn
+            else
+                sudo wget -v $line -O $sd/$fn >/dev/null
+            fi
         fi
     done
+    # Touch dummy pkg
+    if [! -e $sd/versionCheck.tar.xz ]; then
+        log "GEN|INFO|Creating dummy packages" t
+        sudo touch $sd/versionCheck.tar.xz
+    fi
     log "GEN|INFO|Checking md5." t
     pushd $sd >/dev/null
-    sudo md5sum -c $confBase/md5sums
+    if [[ $DEBUG > 0 ]]; then
+        sudo md5sum -c $confBase/md5sums
+    else
+        sudo md5sum -c $confBase/md5sums > /dev/null
+    fi
     popd >/dev/null
 
     log "GEN|INFO|Checking $LFS/tools." t t
@@ -218,8 +242,10 @@ function startupCheck {
     fi
 
     log "GEN|INFO|Checking LFS group & user." t
+    firststart=1
     grep -q lfs < /etc/group
     if [[ $? > 0 ]];then
+        firstStart=0
         log "GEN|WARNING|lfs group not found. Fixing." t
         sudo groupadd lfs
     fi
@@ -228,21 +254,25 @@ function startupCheck {
     if [[ $? > 0 ]];then
         log "GEN|WARNING|lfs user not found. Fixing." t
         sudo useradd -s /bin/bash -g lfs -m -k /dev/null lfs
-            log "GEN|INFO|Set password for lfs user." t
-            sudo passwd lfs
+        log "GEN|INFO|Set password for lfs user." t
+        sudo passwd lfs
     fi
 
     ### I don't check because maybe a file was downloaded at a later date.
     ### This way we are sure permission are correct.
-    log "GEN|INFO|Fixing ownership." t
-    sudo chown -R lfs:lfs $LFS/tools
-    sudo chown -R lfs:lfs $sd
-
+    user=`stat -c %U $devBase/etc`
+    if [[ "$user" != "lfs" ]]; then
+        log "GEN|INFO|Fixing ownership." t
+        sudo chown -Rv lfs:lfs $LFS/tools $sd $devBase/etc $devBase/var
+        sudo chmod g+w -vR $LFS/tools $sd $devBase/etc $devBase/var
+        sudo chgrp lfs $devBase
+        sudo chmod g+w $devBase
+    fi
     log "GEN|INFO|Checking lfs user environment." t
     sudo chmod o+w -R $lfsUserHome
     if [ ! -f $lfsUserHome/.bash_profile ]; then
         log "GEN|INFO|Creating bash_profile." t t
-        sudo -u lfs echo "exec env -i HOME=$HOME TERM=$TERM PS1='\u:\w\$ ' /bin/bash" > $lfsUserHome/.bash_profile
+         echo "exec env -i HOME=$HOME TERM=$TERM PS1='\u:\w\$ ' /bin/bash" > $lfsUserHome/.bash_profile
         sudo chown -v lfs:lfs $lfsUserHome/.bash_profile
     fi
 
@@ -259,9 +289,17 @@ LFS_TGT=$(uname -m)-lfs-linux-gnu
 PATH=/tools/bin:/bin:/usr/bin
 export LFS LC_ALL LFS_TGT PATH
 "
-        sudo -u lfs echo $brc > $lfsUserHome/.bashrc
+         echo $brc > $lfsUserHome/.bashrc
     fi
-    sudo chmod o-w -R $lfsUserHome
+    if [[ firstStart == 0 ]]; then
+        sudo chmod o-w -R $lfsUserHome
+        log "GEN|INFO|!!!IMPORTANT!!! Add lfs to sudoers with NOPASSWD.\nThis is important to allow the script to wrap itself as lfs user.\nDoing so prevent lfs user to run sudo with a password." t
+        log "GEN|INFO|Should you not want to include lfs as sudoers with NOPASSWD, make sure you become lfs user before running this script." t
+        log "GEN|INFO|Add yourself to the lfs group to have write access to $devBase. It has changed ownership.\nThose minor details will be coded in at some point, got other priorities for now." t
+        exit 0
+    fi
+
+    unset firstStart
 }
 
 function checkInstalled {
@@ -273,7 +311,7 @@ function checkInstalled {
 }
 
 function checkLibInstalled {
-    sudo -u pkm sudo ldconfig -p | grep $1
+     sudo ldconfig -p | grep $1
     if [[ $? > 0 ]]; then
         return 1
     fi
@@ -430,9 +468,6 @@ function dumpEnv {
 # DEBUGONLY When set instruct to process log only when debug is on.
 ###
 function log {
-    if [ $3 ] && [[ $DEBUG == 0 ]]; then
-        return
-    fi
     declare LEVEL COLOR MSG M CALLER
     declare -a FDs # Array of file descriptor where messages needs to be redirected to.
     MSGEND="\e[0m" ## Clear all formatting
@@ -501,8 +536,8 @@ function log {
         MSG="\e[33mDEBUG\e[0m - "$MSG
     fi
 
-    ### If $2 is set we also print to stdout.
-    if [[ $2 ]]; then
+    ### If $1 is set we also print to stdout if debug = 1.
+    if [[ $1 ]] && [[ $debug > 0 ]]; then
         if [[ ! $FDs ]]; then
             echo -e "NO_DESTINATION -- "$MSG
             return
@@ -521,7 +556,7 @@ function log {
         return
     fi
 
-    ### $2 not set, we do not print to stdout
+    ### $1 not set, we do not print to stdout
     if [[ ! $FDs ]]; then
         echo -e "NO_DESTINATION -- "$MSG
     fi
@@ -641,7 +676,7 @@ function loadPkg {
     # Check if source package exists
     if [ ! -f $sd/$tf ]; then
         log "{GEN,ERR}|WARNING|Package $tf not found in source $sd, creating." t t
-        processCmd "sudo -u pkm install -vm664 $devBase/sources/$tf $sd/$tf"
+        processCmd " install -vm664 $devBase/sources/$tf $sd/$tf"
         return
     fi
 
@@ -714,9 +749,9 @@ function unpack {
         return 2
     fi
     processCmd "${unpackCmd}"
-    if [ $hasBuildDir == 0 ]; then
+    if [ $hasBuildDir == 0 ] && [ ! -d $sd/$sdn/build ]; then
         log "PKG|INFO|Creating build directory" true
-        processCmd "install -opkm -gpkm -vdm755 $sd/$sdn/build"
+        processCmd "install -olfs -glfs -vdm755 $sd/$sdn/build"
     fi
 
     log "{GEN,PKG}|INFO|Done." t
@@ -817,7 +852,7 @@ function downloadPkg {
     log "GEN|INFO|Downloading...." t
     while [ $x -lt ${#urls[@]} ]; do
         pkg=$(basename ${urls[$x]})
-        processCmd "sudo -u pkm wget ${urls[$x]} -vO $sd/$pkg"
+        processCmd " wget ${urls[$x]} -vO $sd/$pkg"
         ((x++))
     done
     popd
@@ -870,7 +905,7 @@ function createSkeleton {
         return
     fi
     log "GEN|INFO|Installing $sdnConf" t t
-    processCmd "sudo -u pkm install -vdm775 -o pkm -g pkm $sdnConf"
+    processCmd " install -vdm775 -o lfs -g lfs $sdnConf"
 
     echo -n "Does the package requires a build directory? y/N "
     read d
@@ -889,13 +924,13 @@ function createSkeleton {
     log "GEN|INFO|Creating general config file with default values." t
     tconf="tf:$tf\nsdn:$sdn\nhasBuildDir:$hasBuildDir\nbypassImplement:1\ntasks:unpack,implement,cleanup"
     genConfigFile="$sdnConf/$sdn.conf"
-    processCmd "sudo -u pkm touch $genConfigFile"
-    processCmd "sudo -u pkm chmod 666 -v $genConfigFile"
+    processCmd " touch $genConfigFile"
+    processCmd " chmod 666 -v $genConfigFile"
     echo -e $tconf > "${genConfigFile}"
 
     cmdArrLen=${#cmdFileList[@]}
     log "GEN|INFO|Installing configuration files." t
-    processCmd "sudo -u pkm install -g pkm -o pkm -m664 -v $confBase/templates/* $sdnConf/"
+    processCmd "install -g lfs -o lfs -m664 -v $confBase/templates/* $sdnConf/"
     log "GEN|INFO|Done." t
 
 }
@@ -933,13 +968,13 @@ function prepPkg {
     fi
     log "GEN|INFO|Establishing sdn..." t t
     sdn=`tar $unpackOpt $sd/$pkg |head -n1 |sed -e 's/\/.*//' | sed -e 's/^\.//' |sed ':a;N;$!ba;s/\n//' |uniq`
-    
+
     if [[ "$sdn" = "" ]]; then
         sdn=`tar $unpackOpt $sd/$pkg |head -n2 |sed -e 's/\/.*//' | sed -e 's/^\.//' |sed ':a;N;$!ba;s/\n//' |uniq`
         if [[ "$sdn" = "" ]]; then
-                    log "GEN|WARNING|Unable to set sdn." t
-                    promptUser "Enter sdn: "
-                    read sdn
+            log "GEN|WARNING|Unable to set sdn." t
+            promptUser "Enter sdn: "
+            read sdn
         fi
     fi
     log "GEN|INFO|snd set to: $sdn" t t
@@ -963,10 +998,8 @@ function processCmd {
         cmd=$cmd" "$part
     done
     if [[ $DEBUG = 0 ]]; then
-        $cmd 2>&1 >/dev/null
-    elif [[ $DEBUG = 1 ]]; then
         $cmd >&${pkgLogFD} 2>&${errLogFD}
-    else
+    elif [[ $DEBUG = 1 ]]; then
         $cmd > >(tee >(cat - >&${pkgLogFD})) 2> >(tee >(cat - >&${errLogFD}) >&2)
     fi
     return $?
@@ -1246,7 +1279,7 @@ function evalPrompt {
 
             if [ -f $devBase/var/run/pkm/pkm.lock ]; then
                 log "GEN|INFO|Removing pkm lock." t
-                sudo -u pkm rm -v $devBase/var/run/pkm/pkm.lock
+                sudo rm -v $devBase/var/run/pkm/pkm.lock
             fi
             CURSTATE=1
             ;;
