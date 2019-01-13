@@ -1,0 +1,10 @@
+processCmd "make"
+
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error processing make" t
+    return 1
+fi
+
+case $(uname -m) in
+  x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
+esac
