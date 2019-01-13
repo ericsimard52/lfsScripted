@@ -1,6 +1,1 @@
-res=`expect -c "spawn ls"`
-if [[ "$res" == "\"spawn ls\"" ]]; then
-    echo "The environment is not set up for proper PTY operation. This issue needs to be resolved before running the test suites for Binutils and GCC"
-    return 1
-fi
 

@@ -21,44 +21,63 @@ declare -a cmdFileList
 declare -a autoInstallCmdList
 
 function singleton {
-    grep -q lfs < /etc/passwd
-    if [[ $? < 1 ]];then
-        if [ $USER != "lfs" ]; then
-            echo "Wrapping up execution as lfs user"
-            su lfs -c $devBase/pkm.sh
-            echo "Returned from wrapper, quitting."
-            exit 0
-        fi
-    fi
     if [ -f $devBase/var/run/pkm/pkm.lock ]; then
         echo "Pkm is already running or has not quit properly, in that case, remove $devBase/var/run/pkm/pkm.lock" t
         return 1
     fi
-    sudo touch $devBase/var/run/pkm/pkm.lock
+    touch $devBase/var/run/pkm/pkm.lock
+    usr=`whoami`
+    if [[ $usr == "lfs" ]]; then
+        return 0
+    fi
+    grep -q lfs < /etc/passwd
+    if [[ $? == 0 ]] && [ $USER != "lfs" ]; then
+        echo "Run this program as lfs user."
+        exit 1
+    fi 
+    readConfig
+    startupCheck
+    echo "Installing lfsScripted into lfs home folder."
+    sudo cp -fr $devBase $lfsUserHome
+    sudo chown -vR lfs:lfs $lfsUserHome
+    echo "Su to lfs user, check pkm.conf and variable in pkm.sh"
+    echo "Then you can run the installer."
+    rm var/run/pkm/pkm.lock
+    exit 0
+}
 
+function updatePkgFromLocal {
+    sudo cp -f $lfsUserHome/lfsScripted/etc/pkm.conf $lfsUserHome/lfsScripted/etc/pkm.conf.bak 
+    sudo cp -fr $devBase/etc/* $lfsUserHome/lfsScripted/etc/
+    sudo mv $lfsUserHome/lfsScripted/etc/pkm.conf.bak $lfsUserHome/lfsScripted/etc/pkm.conf 
+    sudo chown -vR lfs:lfs $lfsUserHome
+}
 
+function updatePkm {
+    sudo cp -f $devBase/pkm.sh $lfsUserHome/lfsScripted
+    sudo chown -v lfs:lfs $lfsUserHome/pkm.sh
 }
 
 function startLog {
     if [ ! -f $genLogFile ]; then
         log "NULL|INFO|Creating $genLogFile" t
         touch $genLogFile
-         chmod 666 -v $genLogFile
+        chmod 666 -v $genLogFile
     fi
     if [ ! -f $pkgLogFile ]; then
         log "NULL|INFO|Creating $pkgLogFile" t
-         touch $pkgLogFile
-         chmod 666 -v $pkgLogFile
+        touch $pkgLogFile
+        chmod 666 -v $pkgLogFile
     fi
     if [ ! -f $impLogFile ]; then
         log "NULL|INFO|Creating $impLogFile" t
-         touch $impLogFile
-         chmod 666 -v $impLogFile
+        touch $impLogFile
+        chmod 666 -v $impLogFile
     fi
     if [ ! -f $errLogFile ]; then
         log "NULL|INFO|Creating $errLogFile" t
-         touch $errLogFile
-         chmod 666 -v $errLogFile
+        touch $errLogFile
+        chmod 666 -v $errLogFile
     fi
     log "NULL|INFO|Creating file descriptor for logs" t t
     exec {genLogFD}>$genLogFile
@@ -150,8 +169,7 @@ function readConfig {
     log "NULL|INFO|Done reading config file." t
 }
 
-function startupCheck {
-    log "GEN|INFO|Checking environment." t
+function mountLfs {
     log "GEN|INFO|Checking mountpoint." t t
     if [ ! -d $LFS ]; then
         log "GEN|ERROR|Mount point $LFS does not exist. Creating." t
@@ -183,7 +201,9 @@ function startupCheck {
         ((x++))
     done
     log "GEN|INFO|Done." t
+}
 
+function checkSources {
     log "GEN|INFO|Checking if source directory $sd exists." t t
     if [ ! -d $sd ]; then
         log "GEN|WARNING|Source directory $sd does not exists, creating." t t
@@ -218,7 +238,7 @@ function startupCheck {
         fi
     done
     # Touch dummy pkg
-    if [! -e $sd/versionCheck.tar.xz ]; then
+    if [ ! -e $sd/versionCheck.tar.xz ]; then
         log "GEN|INFO|Creating dummy packages" t
         sudo touch $sd/versionCheck.tar.xz
     fi
@@ -230,7 +250,28 @@ function startupCheck {
         sudo md5sum -c $confBase/md5sums > /dev/null
     fi
     popd >/dev/null
+}
 
+function checkLfsUser {
+    log "GEN|INFO|Checking LFS group & user." t
+    grep -q lfs < /etc/group
+    if [[ $? > 0 ]];then
+        log "GEN|WARNING|lfs group not found. Fixing." t
+        sudo groupadd lfs
+    fi
+
+    grep -q lfs < /etc/passwd
+    if [[ $? > 0 ]];then
+        log "GEN|WARNING|lfs user not found. Fixing." t
+        sudo useradd -s /bin/bash -g lfs -d $lfsUserHome -m -k $devBase/etc/lfsHomeSkel lfs
+        log "GEN|INFO|Set password for lfs user." t
+        sudo passwd lfs
+        log "GEN|INFO|Checking lfs user environment." t
+    fi
+
+}
+
+function checkStructPerm {
     log "GEN|INFO|Checking $LFS/tools." t t
     if [ ! -d $LFS/tools ]; then
         log "GEN|WARNING|$LFS/tools does not exists, creating." t t
@@ -240,66 +281,30 @@ function startupCheck {
         log "GEN|WARNING|/tools does not exists, creating." t t
         sudo ln -sv $LFS/tools /
     fi
-
-    log "GEN|INFO|Checking LFS group & user." t
-    firststart=1
-    grep -q lfs < /etc/group
-    if [[ $? > 0 ]];then
-        firstStart=0
-        log "GEN|WARNING|lfs group not found. Fixing." t
-        sudo groupadd lfs
-    fi
-
-    grep -q lfs < /etc/passwd
-    if [[ $? > 0 ]];then
-        log "GEN|WARNING|lfs user not found. Fixing." t
-        sudo useradd -s /bin/bash -g lfs -m -k /dev/null lfs
-        log "GEN|INFO|Set password for lfs user." t
-        sudo passwd lfs
-    fi
-
     ### I don't check because maybe a file was downloaded at a later date.
     ### This way we are sure permission are correct.
-    user=`stat -c %U $devBase/etc`
-    if [[ "$user" != "lfs" ]]; then
-        log "GEN|INFO|Fixing ownership." t
-        sudo chown -Rv lfs:lfs $LFS/tools $sd $devBase/etc $devBase/var
-        sudo chmod g+w -vR $LFS/tools $sd $devBase/etc $devBase/var
-        sudo chgrp lfs $devBase
-        sudo chmod g+w $devBase
-    fi
-    log "GEN|INFO|Checking lfs user environment." t
-    sudo chmod o+w -R $lfsUserHome
-    if [ ! -f $lfsUserHome/.bash_profile ]; then
-        log "GEN|INFO|Creating bash_profile." t t
-         echo "exec env -i HOME=$HOME TERM=$TERM PS1='\u:\w\$ ' /bin/bash" > $lfsUserHome/.bash_profile
-        sudo chown -v lfs:lfs $lfsUserHome/.bash_profile
-    fi
+    log "GEN|INFO|Checking permission and ownership" t
+    declare -a toCheck=($LFS/tools $sd $devBase/etc $devBase/var)
+    for d in ${toCheck[@]}; do
+        user=`stat -c %U $d`
+        if [[ "$user" != "lfs" ]]; then
+            log "GEN|INFO|Fixing ownership." t
+            sudo chown -Rv lfs:lfs $d
+            sudo chmod g+w -vR $d
+            sudo chgrp lfs $d
+            sudo chmod g+w $d
+        fi
+    done
+    sudo chmod og+w -R $lfsUserHome
+    sudo chown -vR lfs:lfs $lfsUserHome/
+}
 
-    if [ ! -f $lfsUserHome/.bashrc ]; then
-        log "GEN|INFO|Creating .bashrc." t t
-        brc="set +h
-umast 022
-LFS=$LFS
-LC_ALL=POSIX
-LFS_TGT=$(uname -m)-lfs-linux-gnu
-PATH=/tools/bin:/bin:/usr/bin
-export LFS LC_ALL LFS_TGT PATHLC_ALL=POSIX
-LFS_TGT=$(uname -m)-lfs-linux-gnu
-PATH=/tools/bin:/bin:/usr/bin
-export LFS LC_ALL LFS_TGT PATH
-"
-         echo $brc > $lfsUserHome/.bashrc
-    fi
-    if [[ firstStart == 0 ]]; then
-        sudo chmod o-w -R $lfsUserHome
-        log "GEN|INFO|!!!IMPORTANT!!! Add lfs to sudoers with NOPASSWD.\nThis is important to allow the script to wrap itself as lfs user.\nDoing so prevent lfs user to run sudo with a password." t
-        log "GEN|INFO|Should you not want to include lfs as sudoers with NOPASSWD, make sure you become lfs user before running this script." t
-        log "GEN|INFO|Add yourself to the lfs group to have write access to $devBase. It has changed ownership.\nThose minor details will be coded in at some point, got other priorities for now." t
-        exit 0
-    fi
-
-    unset firstStart
+function startupCheck {
+    log "GEN|INFO|Checking environment." t
+    checkLfsUser
+    mountLfs
+    checkSources
+    checkStructPerm
 }
 
 function checkInstalled {
@@ -311,7 +316,7 @@ function checkInstalled {
 }
 
 function checkLibInstalled {
-     sudo ldconfig -p | grep $1
+    sudo ldconfig -p | grep $1
     if [[ $? > 0 ]]; then
         return 1
     fi
@@ -323,6 +328,9 @@ function getVersion {
     log "GEN|INFO|Getting version of "$reqCmd t t
     ### I redirect 2>&1 because bzip2 returns its version through stderr
     ### I pipe to sed to remove empty lines, perl version start with one.
+    # if [[ "$1" == "bzip2" ]]; then
+    #     return 0
+    # fi
     cmdVersion=`$1 --version 2>&1  | sed '/^$/d' |head -n1 | egrep -o "([0-9]{1,}\.)+[0-9]{1,}"`
     if [[ $? > 0 ]]; then
         log "PKG|WARNING|Unable to fetch version, attempting another way." t t
@@ -1300,6 +1308,32 @@ function prompt {
         evalPrompt $command
     done
 }
+
+
+
+## Checking user parameters
+for arg in "$@"
+do
+    case "$arg" in
+        --updatePkgFromLocal)
+            updatePkgFromLocal
+            if [[ $? > 0 ]]; then
+                echo "Error happen, check your installation."
+                exit 1
+            fi
+            exit 0
+            ;;
+        --updatePkm)
+            updatePkm
+            if [[ $? > 0 ]]; then
+                echo "Error happen, check your installation."
+                exit 1
+            fi
+            exit 0
+    esac
+done
+
+
 
 
 singleton ## Ensure only one instance runs.

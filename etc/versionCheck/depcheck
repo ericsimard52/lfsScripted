@@ -136,7 +136,18 @@ else
 fi
 
 echo 'int main(){}' > dummy.c && g++ -o dummy dummy.c
+if [[ $? > 0 ]]; then
+    log "GEN|ERROR|Unable to create dummy.c." t
+    curd=`cwd`
+    log "ERR|INFO|Current directory: $curd" t
+    return 1
+fi
 if [ -x dummy ];then
+    ./dummy
+    if [[ $? > 0 ]]; then
+        log "GEN|ERROR|Unable to execute dummy." t
+        return 1
+    fi
     log "GEN|INFO|g++ compilation OK" t
 else
     log "GEN|ERROR|g++ compilation failed"

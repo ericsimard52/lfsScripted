@@ -1,10 +1,28 @@
-processCmd "make"
+function compilePass1 {
+    processCmd "make"
 
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error processing make" t
-    return 1
-fi
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error processing make" t
+        return 1
+    fi
 
-case $(uname -m) in
-  x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
+    case $(uname -m) in
+        x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
+    esac
+}
+
+promptUser "Which pass [1]"
+read pass
+case $pass in
+    1)
+        compilePass1
+        if [[ $? > 0 ]]; then
+            log "PKG|ERROR|Error withing compile source scripts." t
+            return 1
+        fi
+        ;;
+    *)
+        log "PKG|ERROR|Invalid option."
+        return 1
+        ;;
 esac
