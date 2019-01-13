@@ -1,0 +1,24 @@
+function installPass1 {
+    processCmd "sudo make install"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error install pass 1" t
+        return 1
+    fi
+}
+
+promptUser "Which pass [1]"
+read pass
+case $pass in
+    1)
+        installPass1
+        if [[ $? > 0 ]]; then
+            log "PKG|ERROR|Error withing install source scripts." t
+            return 1
+        fi
+        ;;
+    *)
+        log "PKG|ERROR|Invalid option."
+        return 1
+        ;;
+esac
+

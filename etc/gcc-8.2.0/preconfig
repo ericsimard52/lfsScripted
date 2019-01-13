@@ -1,0 +1,67 @@
+function preConfigPass1 {
+    log "PKG|INFO|Uncompress mpfr." t
+    processCmd "tar -xf ../mpfr-4.0.1.tar.xz"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error with ta mpfr." t
+        return 1
+    fi
+    processCmd "mv -v mpfr-4.0.1 mpfr"
+
+    log "PKG|INFO|Uncompress gmp." t
+    processCmd "tar -xf ../gmp-6.1.2.tar.xz"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error with ta gmp." t
+        return 1
+    fi
+    processCmd "mv -v gmp-6.1.2 gmp"
+
+    log "PKG|INFO|Uncompress mpc." t
+    processCmd "tar -xf ../mpc-1.1.0.tar.gz"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error with ta mc." t
+        return 1
+    fi
+    processCmd "mv -v mpc-1.1.0 mpc"
+
+    log "PKG|INFO|Changing location of GCC's default dynamic linkers." t
+    for file in gcc/config/{linux,i386/linux{,64}}.h
+    do
+        cp -uv $file{,.orig}
+        sed -e 's@/lib\(64\)\?\(32\)\?/ld@/tools&@g' \
+            -e 's@/usr@/tools@g' $file.orig > $file
+        echo '
+        #undef STANDARD_STARTFILE_PREFIX_1
+        #undef STANDARD_STARTFILE_PREFIX_2
+        #define STANDARD_STARTFILE_PREFIX_1 "/tools/lib/"
+        #define STANDARD_STARTFILE_PREFIX_2 ""' >> $file
+        touch $file.orig
+    done
+    promptUser "Review last commands results, continue> [Yn]"
+    read cont
+    case $cont in
+        [nN])
+            log "PKG|ERROR|User mentioned error happened." t
+            return 1
+    esac
+
+    log "PKG|INFO|Checking and adjusting if X64." t
+    case $(uname -m) in
+        x86_64)
+            sed -e '/m64=/s/lib64/lib/' \
+                -i.orig gcc/config/i386/t-linux64
+            ;;
+    esac
+
+}
+
+promptUser "Which pass [1]"
+read pass
+case $pass in
+    1)
+        preConfigPass1
+        ;;
+    *)
+        log "PKG|ERROR|Invalid option."
+        return 1
+        ;;
+esac
