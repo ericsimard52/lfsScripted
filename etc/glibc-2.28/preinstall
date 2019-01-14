@@ -1,0 +1,10 @@
+touch /etc/ld.so.conf
+if [[ $? > 0 ]]; then
+    res=$?
+    return $res
+fi
+sed '/test-installation/s@$\(PERL\)@echo not running@' -i ../Makefile
+if [[ $? > 0 ]]; then
+    res=$?
+    return $res
+fi

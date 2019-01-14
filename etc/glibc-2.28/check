@@ -1,0 +1,12 @@
+echo 'int main(){}' > dummy.c
+$LFS_TGT-gcc dummy.c
+readelf -l a.out | grep ': /tools'
+log "PKG|INFO|You should see no errors and output of the form: [Requesting program interpreter: /tools/lib64/ld-linux-x86-64.so.2]" t
+promptUser "Do we continue [Yn]?"
+read c
+case $c in
+    [nN])
+        log "PKG|ERROR|User reported error." t
+        return 1
+esac
+rm -v dummy.c a.out
