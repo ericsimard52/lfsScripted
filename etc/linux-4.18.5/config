@@ -1,0 +1,24 @@
+function configPass1 {
+    processCmd "make mrproper"
+    if [[ $? > 0 ]]; then
+        return 1
+    fi
+    return 0
+}
+
+promptUser "Which Pass [1]"
+read pass
+
+case $pass in
+    1)
+        configPass1
+        if [[ $? > 0 ]]; then
+            log "PKG|ERROR|Error in configPass1" t
+            return 1
+        fi
+        ;;
+    *)
+        log "PKG|ERROR|Unknown options." t
+        return 1
+        ;;
+esac

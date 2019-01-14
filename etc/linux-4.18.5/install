@@ -1,0 +1,30 @@
+function installPass1 {
+    processCmd "make INSTALL_HDR_PATH=dest headers_install"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error in make install" t
+        return 1
+    fi
+    processCmd "cp -rv dest/include/* /tools/include"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error in cp" t
+        return 1
+    fi
+    return 0
+}
+
+promptUser "Which Pass [1]"
+read pass
+
+case $pass in
+    1)
+        installPass1
+        if [[ $? > 0 ]]; then
+            log "PKG|ERROR|Error in installPass1" t
+            return 1
+        fi
+        ;;
+    *)
+        log "PKG|ERROR|Unknown options." t
+        return 1
+        ;;
+esac
