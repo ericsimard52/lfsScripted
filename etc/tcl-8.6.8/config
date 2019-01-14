@@ -1,0 +1,9 @@
+pushd unix > /dev/null
+processCmd "./configure --prefix=/tools"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with config." t
+    popd >/dev/null
+    return 1
+fi
+popd > /dev/null
+return 0

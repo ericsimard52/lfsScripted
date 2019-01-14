@@ -1,0 +1,12 @@
+processCmd "make install"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with install." t
+    return 1
+fi
+log "PKG|INFO|Linking."
+processCmd "ln -sv bash /tools/bin/sh"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with linking." t
+    return 1
+fi
+return 0

@@ -1,0 +1,10 @@
+pushd gettext-tools >/dev/null
+processCmd "EMACS=\"no\" ./configure --prefix=/tools --disable-shared"
+
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with configure." t
+    popd > /dev/null
+    return 1
+fi
+popd > /dev/null
+return 0

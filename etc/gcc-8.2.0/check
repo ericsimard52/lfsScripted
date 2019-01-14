@@ -1,5 +1,53 @@
-ulimit -s 32768
-rm -v ../gcc/testsuite/g++.dg/pr83239.C
-chown -Rv nobody . 
-su nobody -s /bin/bash -c "PATH=$PATH make -k check"
-../contrib/test_summary | grep -A7 Summ
+function checkPass1 {
+    echo 'int main(){}' > dummy.c
+    $LFS_TGT-gcc dummy.c
+    readelf -l a.out | grep ': /tools'
+    promptUser "Looks good? [Yn]"
+    read c
+    case $c in
+        [nN])
+            log "PKG|ERROR|User reported error." t
+            processCmd "rm -v dummy.c a.out"
+            return 1
+    esac
+    processCmd "rm -v dummy.c a.out"
+    return 0
+}
+
+function checkPass2 {
+    echo 'int main(){}' > dummy.c
+    cc dummy.c
+    readelf -l a.out | grep ': /tools'
+    promptUser "Looks good? [Yn]"
+    read c
+    case $c in
+        [nN])
+            log "PKG|ERROR|User reported error." t
+            processCmd "rm -v dummy.c a.out"
+            return 1
+    esac
+    processCmd "rm -v dummy.c a.out"
+    return 0
+}
+
+promptUser "Which pass [1,2]"
+read c
+case $c in
+    1)
+        checkPass1
+        if [[ $? > 0 ]]; then
+            return 1
+        fi
+        return 0
+        ;;
+    2)
+        checkPass2
+        if [[ $? > 0 ]]; then
+            return 1
+        fi
+        return 0
+        ;;
+    *)
+        log "PKG|WARNING|Invalid option." t
+        return 1
+esac

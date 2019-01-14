@@ -6,7 +6,14 @@ function compilePass1 {
         return 1
     fi
 }
-promptUser "Which pass [1]"
+function compilePass2 {
+    processCmd "make"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error compiling pass 2." t
+        return 1
+    fi
+}
+promptUser "Which pass [1,2]"
 read pass
 case $pass in
     1)
@@ -15,10 +22,17 @@ case $pass in
             log "PKG|ERROR|Error withing compile source scripts." t
             return 1
         fi
-
+        ;;
+    2)
+        compilePass2
+        if [[ $? > 0 ]]; then
+            log "PKG|ERROR|Error withing compile source scripts." t
+            return 1
+        fi
         ;;
     *)
         log "PKG|ERROR|Invalid option."
         return 1
         ;;
 esac
+return 0

@@ -1,0 +1,23 @@
+log "PKG|INFO|Making backup of configure." t
+processCmd "cp -v configure{,.orig}"
+if [[ $?  0 ]]; then
+  log "PKG|ERROR|Error cp config." t
+  return 1
+fi
+
+log "PKG|INFO|Forcing Expect's configure script to use /bin/stty." t
+processCmd "sed 's:/usr/local/bin:/bin:' configure.orig > configure"
+if [[ $?  0 ]]; then
+  log "PKG|ERROR|Error with sed." t
+  return 1
+fi
+
+log "PKG|INFO|Configure package." t
+processCmd "./configure --prefix=/tools --with-tcl=/tools/lib --with-tclinclude=/tools/include"
+if [[ $?  0 ]]; then
+  log "PKG|ERROR|Error with configure." t
+  return 1
+fi
+
+return 0
+

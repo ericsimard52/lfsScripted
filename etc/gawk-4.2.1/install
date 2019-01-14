@@ -1,0 +1,6 @@
+processCmd "make install"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with install." t
+    return 1
+fi
+return 0

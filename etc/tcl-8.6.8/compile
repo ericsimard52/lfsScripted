@@ -1,0 +1,9 @@
+pushd unix >/dev/null
+processCmd "make"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error in compile." t
+    popd >/dev/null
+    return 1
+fi
+popd >/dev/null
+return 0

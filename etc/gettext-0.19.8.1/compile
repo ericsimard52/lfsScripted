@@ -1,0 +1,36 @@
+pushd gettext-tools > /dev/null
+processCmd "make -C gnulib-lib"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with gnulib-lib" t
+    popd > /dev/null
+    return 1
+fi
+processCmd "make -C intl pluralx.c"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with intl pluralx.c" t
+    popd > /dev/null
+    return 1
+fi
+
+processCmd "make -C src msgfmt"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with src msgfmt" t
+    popd > /dev/null
+    return 1
+fi
+
+processCmd "make -C src msgmerge"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with src msgmerge" t
+    popd > /dev/null
+    return 1
+fi
+
+processCmd "make -C src xgettext"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with src xgettext" t
+    popd > /dev/null
+    return 1
+fi
+popd > /dev/null
+return 0

@@ -1,10 +1,6 @@
-MFB=$MAKEFLAGS
-export MAKEFLAG=-j1
 processCmd "make"
-export MAKEFLAGS=$MFG
-echo $MAKEFLAGS
 if [[ $? > 0 ]]; then
-    log "ERROR: Error while make" true
+    log "PKG|ERROR|Error compiling." t
     return 1
 fi
 return 0

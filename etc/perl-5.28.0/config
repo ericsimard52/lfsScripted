@@ -1,0 +1,6 @@
+processCmd "sh Configure -des -Dprefix=/tools -Dlibs=-lm -Uloclibpth -Ulocincpth"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with configure." t
+    return 1
+fi
+return 0

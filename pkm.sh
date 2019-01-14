@@ -57,7 +57,7 @@ function updatePkgFromLocal {
 function updatePkm {
     readConfig
     sudo cp -f $devBase/pkm.sh $lfsUserHome/lfsScripted
-    sudo chown -v lfs:lfs $lfsUserHome/pkm.sh
+    sudo chown -v lfs:lfs $lfsUserHome/lfsScripted/pkm.sh
 }
 
 function startLog {

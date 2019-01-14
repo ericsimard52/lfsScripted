@@ -5,16 +5,37 @@ function configPass1 {
         log "PKG|ERROR|Error configure pass 1" t
         return 1
     fi
+    return 0
 }
 
-promptUser "Which pass [1]"
+function configPass2 {
+    processCmd "CC=$LFS_TGT-gcc CXX=$LFS_TGT-g++ AR=$LFS_TGT-ar RANLIB=$LFS_TGT-ranlib ../configure --prefix=/tools --with-local-prefix=/tools --with-native-system-header-dir=/tools/include --enable-languages=c,c++ --disable-libstdcxx-pch --disable-multilib --disable-bootstrap --disable-libgomp"
+
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error configure pass 2" t
+        return 1
+    fi
+    return 0
+}
+
+promptUser "Which pass [1,2]"
 read pass
 case $pass in
     1)
         configPass1
+        if [[ $? > 0 ]]; then
+            return 1
+        fi
+        ;;
+    2)
+        configPass2
+        if [[ $? > 0 ]]; then
+            return 1
+        fi
         ;;
     *)
         log "PKG|ERROR|Invalid option."
         return 1
         ;;
 esac
+return 0

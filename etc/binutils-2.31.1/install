@@ -1,2 +1,57 @@
-processCmd "make install"
-  
+function installPass1 {
+    processCmd "make install"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error installing." t
+        return 1
+    fi
+    return 0
+}
+
+function installPass2 {
+    processCmd "make install"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error installing." t
+        return 1
+    fi
+    processCmd "make -C ld clean"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error with make -C ld clean." t
+        return 1
+    fi
+    processCmd "make -C ld LIB_PATH=/usr/lib:/lib"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error with make -C ld LIB_PATH=/usr/lib:/lib." t
+        return 1
+    fi
+    processCmd "cp -v ld/ld-new /tools/bin"
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error with cp -v ld/ld-new /tool/bin." t
+        return 1
+    fi
+    return 0
+}
+promptUser "Which pass [1,2]"
+read pass
+
+
+case $pass in
+    1)
+        installPass1
+        if [[ $? > 0 ]]; then
+            return 1
+        fi
+        ;;
+    2)
+        installPass2
+        if [[ $? > 0 ]]; then
+            return 1
+        fi
+        ;;
+    *)
+        log "{GEN,PKG,ERR}|ERROR|Choosed invalid pass." t t
+        return 1
+        ;;
+esac
+
+return 0
+

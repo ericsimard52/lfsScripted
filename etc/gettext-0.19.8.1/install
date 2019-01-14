@@ -1,0 +1,9 @@
+pushd gettext-tools >/dev/null
+processCmd "cp -v src/{msgfmt,msgmerge,xgettext} /tools/bin"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with install." t
+    popd > /dev/null
+    return 1
+fi
+popd > /dev/null
+return 0

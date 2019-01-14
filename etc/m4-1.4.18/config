@@ -1,0 +1,14 @@
+log "PKG|INFO|Apply some fixes." t
+processCmd "sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with sed." t
+    return 1
+fi
+
+echo "#define _IO_IN_BACKUP 0x100" >> lib/stdio-impl.h
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with echo." t
+    return 1
+fi
+
+return 0

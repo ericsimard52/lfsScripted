@@ -9,13 +9,31 @@ function compilePass1 {
     case $(uname -m) in
         x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
     esac
+    return 0
 }
 
-promptUser "Which pass [1]"
+function compilePass2 {
+    processCmd "make"
+
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error processing make" t
+        return 1
+    fi
+    return 0
+}
+
+promptUser "Which pass [1,2]"
 read pass
 case $pass in
     1)
         compilePass1
+        if [[ $? > 0 ]]; then
+            log "PKG|ERROR|Error withing compile source scripts." t
+            return 1
+        fi
+        ;;
+    2)
+        compilePass2
         if [[ $? > 0 ]]; then
             log "PKG|ERROR|Error withing compile source scripts." t
             return 1
@@ -26,3 +44,5 @@ case $pass in
         return 1
         ;;
 esac
+return 0
+

@@ -10,3 +10,4 @@ case $c in
         return 1
 esac
 rm -v dummy.c a.out
+return 0
