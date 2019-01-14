@@ -1,5 +1,5 @@
 function installPass1 {
-    processCmd "sudo make install"
+    processCmd "make install"
     if [[ $? > 0 ]]; then
         log "PKG|ERROR|Error install pass 1" t
         return 1

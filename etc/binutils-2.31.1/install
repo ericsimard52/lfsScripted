@@ -1,2 +1,2 @@
-processCmd "sudo make install"
+processCmd "make install"
   

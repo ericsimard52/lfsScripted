@@ -47,6 +47,7 @@ function singleton {
 }
 
 function updatePkgFromLocal {
+    readConfig
     sudo cp -f $lfsUserHome/lfsScripted/etc/pkm.conf $lfsUserHome/lfsScripted/etc/pkm.conf.bak 
     sudo cp -fr $devBase/etc/* $lfsUserHome/lfsScripted/etc/
     sudo mv $lfsUserHome/lfsScripted/etc/pkm.conf.bak $lfsUserHome/lfsScripted/etc/pkm.conf 
@@ -54,6 +55,7 @@ function updatePkgFromLocal {
 }
 
 function updatePkm {
+    readConfig
     sudo cp -f $devBase/pkm.sh $lfsUserHome/lfsScripted
     sudo chown -v lfs:lfs $lfsUserHome/pkm.sh
 }
