@@ -1,4 +1,4 @@
-processCmd "make"
+processCmd "make install"
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with make." t
     return 1

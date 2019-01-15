@@ -1,4 +1,4 @@
-processCmd "make SCRIPTS=\"\" install"
+make SCRIPTS="" install
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with install." t
     return 1

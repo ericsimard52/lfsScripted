@@ -1,16 +1,5 @@
 function checkPass1 {
-    echo 'int main(){}' > dummy.c
-    $LFS_TGT-gcc dummy.c
-    readelf -l a.out | grep ': /tools'
-    promptUser "Looks good? [Yn]"
-    read c
-    case $c in
-        [nN])
-            log "PKG|ERROR|User reported error." t
-            processCmd "rm -v dummy.c a.out"
-            return 1
-    esac
-    processCmd "rm -v dummy.c a.out"
+    log "PKG|INFO|No check needed for pass 1" t
     return 0
 }
 

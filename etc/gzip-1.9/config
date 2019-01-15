@@ -1,5 +1,5 @@
 log "PKG|INFO|Make some fixes required by glibc" t
-processCmd "sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c"
+sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with sed." t
     return 1

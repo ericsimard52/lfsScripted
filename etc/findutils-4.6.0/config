@@ -1,11 +1,11 @@
 log "PKG|INFO|Some fixes required by glibc"
-processCmd "sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' gl/lib/*.c"
+sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' gl/lib/*.c
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with first sed." t
     return 1
 fi
 
-processCmd "sed -i '/unistd/a #include <sys/sysmacros.h>' gl/lib/mountlist.c"
+sed -i '/unistd/a #include <sys/sysmacros.h>' gl/lib/mountlist.c
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with second sed." t
     return 1

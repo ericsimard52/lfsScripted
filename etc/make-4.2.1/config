@@ -1,5 +1,5 @@
 log "PKG|INFO|Implement work around an error caused by glibc" t
-processCmd "sed -i '211,217 d; 219,229 d; 232 d' glob/glob.c"
+sed -i '211,217 d; 219,229 d; 232 d' glob/glob.c
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with sed." t
     return 1

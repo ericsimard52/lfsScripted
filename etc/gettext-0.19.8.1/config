@@ -1,5 +1,5 @@
 pushd gettext-tools >/dev/null
-processCmd "EMACS=\"no\" ./configure --prefix=/tools --disable-shared"
+EMACS="no" ./configure --prefix=/tools --disable-shared
 
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with configure." t

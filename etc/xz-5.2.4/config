@@ -1,4 +1,4 @@
-processCmd "./configure --prefix=/usr"
+processCmd "./configure --prefix=/tools"
 if [[ $? > 0 ]]; then
     log "PKG|ERROR|Error with configure." t
     return 1
