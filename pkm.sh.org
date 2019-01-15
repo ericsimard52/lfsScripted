@@ -1,50 +1,61 @@
-#!/bin/bash
 
-#
-declare devBase="/home/tech/Git/lfsScripted"
-declare configFile="$devBase/etc/pkm.conf"
-declare sd td sdn sdnConf pkg ext hasBuildDir buildDir confBase wgetUrl LFS lfsUserHome
-declare -a partitionDev partitionName partitionMount partitionFs
-declare unpackCmd
-declare MAKEFLAGS
-declare DEBUG=0 # 0=OFF, 1= ON, debug is always sent to log file, turn on make is print to stdOut
-declare genLogFile pkgLogFile impLogFile errLogFile
-declare genLogFD pkgLogFD impLogFD errLogFD #File descriptor input only
-declare bypassImplement=0 # Implementation bypassed in temp toolchain, we do not use fakeroot.
-declare CURSTATE=0 # Set to 1 to exit program succesfully
+#+STARTUP: hideblocks
 
-# Config files
-declare genConfigFile depcheckCmdFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile
-declare preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile
-declare -a cmdFileList
-declare -a autoInstallCmdList
+#+NAME: Declare
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identity #o0755)
+  #!/bin/bash
 
-function singleton {
-    if [ -f $devBase/var/run/pkm/pkm.lock ]; then
-        echo "Pkm is already running or has not quit properly, in that case, remove $devBase/var/run/pkm/pkm.lock" t
-        return 1
-    fi
-    touch $devBase/var/run/pkm/pkm.lock
-    usr=`whoami`
-    if [[ $usr == "lfs" ]]; then
-        return 0
-    fi
-    grep -q lfs < /etc/passwd
-    if [[ $? == 0 ]] && [ $USER != "lfs" ]; then
-        echo "Run this program as lfs user."
-        exit 1
-    fi
-    readConfig
-    startupCheck
-    echo "Installing lfsScripted into lfs home folder."
-    sudo cp -fr $devBase $lfsUserHome
-    sudo chown -vR lfs:lfs $lfsUserHome
-    echo "Su to lfs user, check pkm.conf and variable in pkm.sh"
-    echo "Then you can run the installer."
-    rm var/run/pkm/pkm.lock
-    exit 0
-}
+  #
+  declare devBase="/home/tech/Git/lfsScripted"
+  declare configFile="$devBase/etc/pkm.conf"
+  declare sd td sdn sdnConf pkg ext hasBuildDir buildDir confBase wgetUrl LFS lfsUserHome
+  declare -a partitionDev partitionName partitionMount partitionFs
+  declare unpackCmd
+  declare MAKEFLAGS
+  declare DEBUG=0 # 0=OFF, 1= ON, debug is always sent to log file, turn on make is print to stdOut
+  declare genLogFile pkgLogFile impLogFile errLogFile
+  declare genLogFD pkgLogFD impLogFD errLogFD #File descriptor input only
+  declare bypassImplement=0 # Implementation bypassed in temp toolchain, we do not use fakeroot.
+  declare CURSTATE=0 # Set to 1 to exit program succesfully
 
+  # Config files
+  declare genConfigFile depcheckCmdFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile
+  declare preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile
+  declare -a cmdFileList
+  declare -a autoInstallCmdList
+#+END_SRC
+
+#+NAME: Singleton
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
+  function singleton {
+      if [ -f $devBase/var/run/pkm/pkm.lock ]; then
+          echo "Pkm is already running or has not quit properly, in that case, remove $devBase/var/run/pkm/pkm.lock" t
+          return 1
+      fi
+      touch $devBase/var/run/pkm/pkm.lock
+      usr=`whoami`
+      if [[ $usr == "lfs" ]]; then
+          return 0
+      fi
+      grep -q lfs < /etc/passwd
+      if [[ $? == 0 ]] && [ $USER != "lfs" ]; then
+          echo "Run this program as lfs user."
+          exit 1
+      fi
+      readConfig
+      startupCheck
+      echo "Installing lfsScripted into lfs home folder."
+      sudo cp -fr $devBase $lfsUserHome
+      sudo chown -vR lfs:lfs $lfsUserHome
+      echo "Su to lfs user, check pkm.conf and variable in pkm.sh"
+      echo "Then you can run the installer."
+      rm var/run/pkm/pkm.lock
+      exit 0
+  }
+#+END_SRC
+
+#+NAME: updatePkgFromLocal
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function updatePkgFromLocal {
     readConfig
     sudo cp -f $lfsUserHome/lfsScripted/etc/pkm.conf $lfsUserHome/lfsScripted/etc/pkm.conf.bak 
@@ -52,13 +63,19 @@ function updatePkgFromLocal {
     sudo mv $lfsUserHome/lfsScripted/etc/pkm.conf.bak $lfsUserHome/lfsScripted/etc/pkm.conf 
     sudo chown -vR lfs:lfs $lfsUserHome
 }
+#+END_SRC
 
+#+NAME: updatePkm
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function updatePkm {
     readConfig
     sudo cp -f $devBase/pkm.sh $lfsUserHome/lfsScripted
     sudo chown -v lfs:lfs $lfsUserHome/lfsScripted/pkm.sh
 }
+#+END_SRC
 
+#+NAME: startLog
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function startLog {
     if [ ! -f $genLogFile ]; then
         log "NULL|INFO|Creating $genLogFile" t
@@ -86,7 +103,10 @@ function startLog {
     exec {impLogFD}>$impLogFile
     exec {errLogFD}>$errLogFile
 }
+#+END_SRC
 
+#+NAME: readConfig
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 ###
 # Read config file stored in $configFile
 ###
@@ -169,7 +189,10 @@ function readConfig {
     export MAKEFLAGS
     log "NULL|INFO|Done reading config file." t
 }
+#+END_SRC
 
+#+NAME: mountLfs
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function mountLfs {
     log "GEN|INFO|Checking mountpoint." t t
     if [ ! -d $LFS ]; then
@@ -204,6 +227,10 @@ function mountLfs {
     log "GEN|INFO|Done." t
 }
 
+#+END_SRC
+
+#+NAME: checkSources
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function checkSources {
     log "GEN|INFO|Checking if source directory $sd exists." t t
     if [ ! -d $sd ]; then
@@ -253,6 +280,10 @@ function checkSources {
     popd >/dev/null
 }
 
+#+END_SRC
+
+#+NAME: checkLfsUser
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function checkLfsUser {
     log "GEN|INFO|Checking LFS group & user." t
     grep -q lfs < /etc/group
@@ -272,6 +303,10 @@ function checkLfsUser {
 
 }
 
+#+END_SRC
+
+#+NAME: checkStructPerm
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function checkStructPerm {
     log "GEN|INFO|Checking $LFS/tools." t t
     if [ ! -d $LFS/tools ]; then
@@ -300,6 +335,10 @@ function checkStructPerm {
     sudo chown -vR lfs:lfs $lfsUserHome/
 }
 
+#+END_SRC
+
+#+NAME: startupCheck
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function startupCheck {
     log "GEN|INFO|Checking environment." t
     checkLfsUser
@@ -308,6 +347,10 @@ function startupCheck {
     checkStructPerm
 }
 
+#+END_SRC
+
+#+NAME: checkInstalled
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function checkInstalled {
     processCmd "command -v "$1
     if [[ $? > 0 ]]; then
@@ -315,7 +358,10 @@ function checkInstalled {
     fi
     return 0
 }
+#+END_SRC
 
+#+NAME: checkLibInstalled
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function checkLibInstalled {
     sudo ldconfig -p | grep $1
     if [[ $? > 0 ]]; then
@@ -323,7 +369,10 @@ function checkLibInstalled {
     fi
     return 0
 }
+#+END_SRC
 
+#+NAME: getVersion
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function getVersion {
     reqCmd="$1"
     log "GEN|INFO|Getting version of "$reqCmd t t
@@ -348,7 +397,10 @@ function getVersion {
     eval "$2=$cmdVersion"
     return $?
 }
+#+END_SRC
 
+#+NAME: verComp
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function vercomp {
     declare cp='>='; ## Default comparator if not provided
     if [[ $3 ]]; then
@@ -434,11 +486,12 @@ function vercomp {
     return 1
 }
 
-###
-# Dump environment variable
-###
+#+END_SRC
+
+#+NAME: dumpEnv
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function dumpEnv {
-    printf "\e[1mEnvironment Var:\e[0m
+printf "\e[1mEnvironment Var:\e[0m
 \e[34mDEBUG: \e[32m$DEBUG
 \e[34msd: \e[32m$sd
 \e[34msdn: \e[32m$sdn
@@ -460,8 +513,10 @@ function dumpEnv {
 \e[34merrLog: \e[32m$errLogFile
 \e[34merrLogFD: \e[32m$errLogFD\e[0m\n"
 }
+#+END_SRC
 
-#!/bin/bash
+#+NAME: log
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 ###
 # Params "FDs|LEVEL|MESSAGE" PRINTtoSTDOUT DEBUGONLY
 # FDs define 1 or more file descriptor to send the message to. Possible option: GEN,PKG,IMP,ERR
@@ -578,22 +633,28 @@ function log {
     unset IFS FDs LEVEL COLOR MSG M MSGEND i CALLER
 }
 
+#+END_SRC
+
+#+NAME: fetchPkg
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function fetchPkg {
-    while read -r line; do
-        echo $line
-        IFS=':' read -ra PARAM <<< "$line"
-        case "${PARAM[0]}" in
-        esac
-        unset IFS
-    done < $configFile
+while read -r line; do
+echo $line
+IFS=':' read -ra PARAM <<< "$line"
+case "${PARAM[0]}" in
+esac
+unset IFS
+done < $configFile
 
-    if [[ "$wgetUrl" = "" ]]; then
-        log "{GEN,ERR}|ERROR|No url provided. Adjust config file." t
-        return
-    fi
-    wget $wgetUrl $sd/
+if [[ "$wgetUrl" = "" ]]; then
+log "{GEN,ERR}|ERROR|No url provided. Adjust config file." t
+return
+fi
 }
+#+END_SRC
 
+#+NAME: loadPkg
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function loadPkg {
     if [[ ! "$pkg" == "" ]]; then
         log "GEN|INFO|Unloading previous package from memory." true
@@ -731,46 +792,40 @@ function loadPkg {
     log "PKG|INFO|unpackCmd set: $unpackCmd." t t
 }
 
-###
-# Unload package from memory, reset environment variable to their default and call readConfig to reload configuration.
-###
+#+END_SRC
+
+#+NAME: unloadPkg
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function unloadPkg {
-    unset -v pkg sdnConf tf sdn hasBuildDir buildDir ld ext unpackCmd banner genConfigFile depcheckCmdFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd autoInstallCmdList
-    isImplemented=1
+unset -v pkg sdnConf tf sdn hasBuildDir buildDir ld ext unpackCmd banner genConfigFile depcheckCmdFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd autoInstallCmdList
+isImplemented=1
 }
+#+END_SRC
 
-###
-# Call to unpack source code.
-# The unpackCmd is set when loadPkg is called.
-###
+#+NAME: unpack
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function unpack {
-    log "{GEN,PKG}|INFO|Unpacking source code $tf" true
+log "{GEN,PKG}|INFO|Unpacking source code $tf" true
 
-    if [ ! -f $sd/$tf ]; then
-        log "{GEN,PKG,ERR}|FATAL|$tf not found." true
-        return 1
-    fi
+log "{GEN,PKG,ERR}|FATAL|$tf not found." true
+return 1
+fi
 
-    log "PKG|INFO|Running Cmd: $unpackCmd" true
-    pushd $sd > /dev/null
-    if [[ $? > 0 ]]; then
-        log "{GEN,PKG,ERR}|FATAL|pushd to $sd failed." true
-        return 2
-    fi
-    processCmd "${unpackCmd}"
-    if [ $hasBuildDir == 0 ] && [ ! -d $sd/$sdn/build ]; then
-        log "PKG|INFO|Creating build directory" true
-        processCmd "install -olfs -glfs -vdm755 $sd/$sdn/build"
-    fi
+log "PKG|INFO|Running Cmd: $unpackCmd" true
+if [[ $? > 0 ]]; then
+log "{GEN,PKG,ERR}|FATAL|pushd to $sd failed." true
+return 2
+fi
+processCmd "${unpackCmd}"
+log "PKG|INFO|Creating build directory" true
+fi
 
-    log "{GEN,PKG}|INFO|Done." t
-    popd > /dev/null 2>&1
+log "{GEN,PKG}|INFO|Done." t
 }
+#+END_SRC
 
-###
-# Auto install takes its task list from the package config file.
-# This function will simply display the list of task and request confirmation from the user.
-###
+#+NAME: autoInstall
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function autoInstall {
     log "GEN|INFO|AutoInstall: Will be running the following tasks:"
     i=0
@@ -790,9 +845,10 @@ function autoInstall {
     esac
 }
 
-###
-# Run the autoinstall
-###
+#+END_SRC
+
+#+NAME: runAutoInstall
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function runAutoInstall {
     i=0
     while [[ $i < ${#autoInstallCmdList[@]} ]]; do
@@ -840,34 +896,39 @@ function runAutoInstall {
     return 0
 }
 
-function downloadPkg {
-    declare -a urls
-    done=0
-    log "GEN|INFO|Downloading packages, enter 1 url per line, finish with empty line." t
-    while [ $done -lt 1 ];do
-        read u
-        if [ "$u" = "" ];then
-            done=1
-            continue
-        fi
-        urls+=(${u})
-    done
-    x=0
-    pushd /tmp >/dev/null
-    if [[ $? > 0 ]]; then
-        log "{GEN,ERR}|FATAL|Unable to pushd $sd" t
-        return
-    fi
-    log "GEN|INFO|Downloading...." t
-    while [ $x -lt ${#urls[@]} ]; do
-        pkg=$(basename ${urls[$x]})
-        processCmd " wget ${urls[$x]} -vO $sd/$pkg"
-        ((x++))
-    done
-    popd
-    unset x urls done
-}
+#+END_SRC
 
+#+NAME: downloadPkg
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
+function downloadPkg {
+declare -a urls
+done=0
+log "GEN|INFO|Downloading packages, enter 1 url per line, finish with empty line." t
+while [ $done -lt 1 ];do
+read u
+if [ "$u" = "" ];then
+done=1
+continue
+fi
+urls+=(${u})
+done
+x=0
+if [[ $? > 0 ]]; then
+log "{GEN,ERR}|FATAL|Unable to pushd $sd" t
+return
+fi
+log "GEN|INFO|Downloading...." t
+while [ $x -lt ${#urls[@]} ]; do
+pkg=$(basename ${urls[$x]})
+((x++))
+done
+popd
+unset x urls done
+}
+#+END_SRC
+
+#+NAME: searchPkg
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function searchPkg {
     # If we can't file the package (source tar), we do a search for the term provided by the user.
     declare -a foundFiles
@@ -908,6 +969,10 @@ function searchPkg {
     fi
 }
 
+#+END_SRC
+
+#+NAME: createSkeleton
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function createSkeleton {
     if [ -d $sdnConf ]; then
         log "GEN|WARNING|Config Directory exists. Previous configuration file will be left intact." t
@@ -944,6 +1009,10 @@ function createSkeleton {
 
 }
 
+#+END_SRC
+
+#+NAME: prepPkg
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function prepPkg {
     unloadPkg
     promptUser "Package name?"
@@ -1001,23 +1070,26 @@ function prepPkg {
     log "GEN|INFO|CreateSkeleton done." t t
 }
 
-function processCmd {
-    local cmd=""
-    for part in $@; do
-        cmd=$cmd" "$part
-    done
-    if [[ $DEBUG = 0 ]]; then
-        $cmd >&${pkgLogFD} 2>&${errLogFD}
-    elif [[ $DEBUG = 1 ]]; then
-        $cmd > >(tee >(cat - >&${pkgLogFD})) 2> >(tee >(cat - >&${errLogFD}) >&2)
-    fi
-    return $?
-}
+#+END_SRC
 
-###
-# Enumerate through commans stores in commands array
-# all does not work as intended
-###
+#+NAME: processCmd
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
+function processCmd {
+local cmd=""
+for part in $@; do
+cmd=$cmd" "$part
+done
+if [[ $DEBUG = 0 ]]; then
+$cmd >&${pkgLogFD} 2>&${errLogFD}
+elif [[ $DEBUG = 1 ]]; then
+$cmd > >(tee >(cat - >&${pkgLogFD})) 2> >(tee >(cat - >&${errLogFD}) >&2)
+fi
+return $?
+}
+#+END_SRC
+
+#+NAME: listCommands
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function listCommands {
     declare cmd
     COLOR="\e[32]"
@@ -1054,46 +1126,43 @@ function listCommands {
 
 
 }
+#+END_SRC
 
-###
-# Provide this command with a string parameter representing the prompt to the user.
-# This function is here to ensure standard user prompt throught the application
-###
+#+NAME: promptUser
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function promptUser {
-    COLOR="\e[37m"
-    echo -en $COLOR$1" : \e[0m"
+COLOR="\e[37m"
+echo -en $COLOR$1" : \e[0m"
 }
+#+END_SRC
 
-###
-# Sourcing our commmands scripts here
-###
+#+NAME: sourceScript
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function sourceScript {
-    c=$1
-    log "GEN|INFO|Sourcing: $c" t t
-    source $c
-    res=$?
-    log "GEN|INFO|Sourced $c returned: $res" t t
-    return $res
+c=$1
+log "GEN|INFO|Sourcing: $c" t t
+source $c
+res=$?
+log "GEN|INFO|Sourced $c returned: $res" t t
+return $res
 }
+#+END_SRC
 
-###
-# Cleanup after package source and fakeroot directories
-###
+#+NAME: cleanup
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function cleanup {
-    log "GEN|INFO|Cleaning up source file" t
-    pushd $sd > /dev/null
-    if [[ $? > 0 ]]; then
-        log "{GEN,ERR}|FATAL|pushd to $sd failed." t
-        exit 1
-    fi
+log "GEN|INFO|Cleaning up source file" t
+if [[ $? > 0 ]]; then
+log "{GEN,ERR}|FATAL|pushd to $sd failed." t
+exit 1
+fi
 
-    rm -fr $sdn
-    popd > /dev/null 2>&1
+rm -fr $sdn
 }
+#+END_SRC
 
-###
-# Populate cmd files variable
-###
+#+NAME: setCmdFileList
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function setCmdFileList {
     log "GEN|INFO|Setting up command files list." true
     if [[ "$sdn" = "" ]]; then
@@ -1128,15 +1197,22 @@ function setCmdFileList {
     return 0
 }
 
-function listTask {
-    i=0
-    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
-        echo -n "${autoInstallCmdList[$i]}, "
-        ((i++))
-    done
-    echo ""
-}
+#+END_SRC
 
+#+NAME: listTask
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
+function listTask {
+i=0
+while [[ $i < ${#autoInstallCmdList[@]} ]]; do
+echo -n "${autoInstallCmdList[$i]}, "
+((i++))
+done
+echo ""
+}
+#+END_SRC
+
+#+NAME: evalPrompt
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function evalPrompt {
     case $1 in
         listcommands)
@@ -1302,16 +1378,21 @@ function evalPrompt {
 
 }
 
+#+END_SRC
+
+#+NAME: prompt
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 function prompt {
-    while [[ $CURSTATE == [0] ]]; do
-        promptUser "Input."
-        read -e command
-        evalPrompt $command
-    done
+while [[ $CURSTATE == [0] ]]; do
+promptUser "Input."
+read -e command
+evalPrompt $command
+done
 }
+#+END_SRC
 
-
-
+#+NAME: main
+#+BEGIN_SRC bash eval:no exports:code tangle:pkm.sh tangle-mode:(identoty #o0755)
 ## Checking user parameters
 for arg in "$@"
 do
@@ -1348,3 +1429,5 @@ log "NULL|INFO|Configuration loaded." t
 log "NULL|INFO|Starting log managers" t
 startLog
 prompt
+
+#+END_SRC

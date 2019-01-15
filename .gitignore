@@ -3,6 +3,6 @@
 # Hidden files
 .*
 var/log/pkm/*
-*.org
+#*.org
 etc/pkm.conf
 var/run/*
