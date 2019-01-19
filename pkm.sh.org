@@ -1,4 +1,5 @@
-* Todo's [7/10]
+#+STARTUP: hideblocks
+* Todo's [7/12]
 ** DONE Check if partition is already mounted.
 ** DONE If partition are mounted, ensure they match config
    - Note taken on [2019-01-15 Tue 15:01] \\
@@ -11,9 +12,12 @@
 
 ** DONE Remove implementation function and variable
 ** TODO Provide error check and return value in all functions
+** TODO call quiPkm instead of exit, this will ensure proper quit.
 ** DONE Adjust calls to log function, provide only 1 t to display to stdout
 ** DONE Slim down startup output.
-#+STARTUP: hideblocks
+** TODO [[updatePkgFromLocal]] provide error validation and return value
+** TODO [[updatePkm]] Provide error validation and return value
+** TODO [[startLog]] Provide validation and return value
 
 * Src Block
 #+NAME: Declare
@@ -57,7 +61,7 @@
       grep -q lfs < /etc/passwd
       if [[ $? == 0 ]] && [ $USER != "lfs" ]; then
           echo "Run this program as lfs user."
-          exit 1
+          quitPkm 1
       fi
 
       ## We are not lfs user and it does not exists, install lfsScripted.
@@ -69,7 +73,7 @@
       echo "Su to lfs user, check pkm.conf and variable in pkm.sh"
       echo "Then you can run the installer."
       rm var/run/pkm/pkm.lock
-      exit 0
+      quitPkm 0
   }
 #+END_SRC
 
@@ -79,11 +83,19 @@
   ## This command is only usefull when in development.
   function updatePkgFromLocal {
       readConfig
+      startLog
+      log "GEN|INFO|Making backup of pkm.conf in $lfsUserHome" t
+      sudo cp -fv $lfsUserHome/lfsScripted/etc/pkm.conf $lfsUserHome/lfsScripted/etc/pkm.conf.bak
 
-      sudo cp -f $lfsUserHome/lfsScripted/etc/pkm.conf $lfsUserHome/lfsScripted/etc/pkm.conf.bak
-      sudo cp -fr $devBase/etc/* $lfsUserHome/lfsScripted/etc/
-      sudo mv $lfsUserHome/lfsScripted/etc/pkm.conf.bak $lfsUserHome/lfsScripted/etc/pkm.conf
-      sudo chown -vR lfs:lfs $lfsUserHome
+      log "GEN|INFO|Copy source scripts to $lfsUserHome" t
+      sudo cp -frv $devBase/etc/* $lfsUserHome/lfsScripted/etc/
+
+      log "GEN|INFO|Restaure pkm.conf it got overwriten." t
+      sudo mv -v $lfsUserHome/lfsScripted/etc/pkm.conf.bak $lfsUserHome/lfsScripted/etc/pkm.conf
+
+      checkPerm $lfsUserHome/lfsScripted
+    
+      return 0
   }
 #+END_SRC
 
@@ -95,7 +107,7 @@
       readConfig
       echo "Installing pkm.sh into lfs home."
       sudo cp -f ./pkm.sh $lfsUserHome/lfsScripted
-      sudo chown -v lfs:lfs $lfsUserHome/lfsScripted/pkm.sh
+      checkPerm $lfsUserHome/lfsScripted/pkm.sh
       echo "Remember check top 2 variable."
   }
 #+END_SRC
@@ -135,7 +147,7 @@
       log "NULL|INFO|Reading configuration file." t
       if [ ! -f $configFile ]; then
           log "NULL|ERROR|Configuration file: $configfile is missing." t
-          return 1
+          quitPkm 1
       fi
       while read -r line; do
           IFS=':' read -ra PARAM <<< "$line"
@@ -257,6 +269,37 @@
 
 #+END_SRC
 
+#+NAME: unMountLfs
+#+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
+  function unMountLfs {
+      log "GEN|INFO|UnMounting partitions." t
+      x=0
+      pl=${#partitionName[@]}
+      log "GEN|INFO|Got $pl partition to unmount." t
+      while [ $x -lt $pl ]; do
+          pn=${partitionName[$x]}
+          pm=${partitionMount[$x]}
+          pd=${partitionDev[$x]}
+          pf=${partitionFs[$x]}
+
+          if [[ "$pn" = "swap" ]]; then
+              log "GEN|WARN|Not turning off swap, there is a host system active." t
+              break
+          fi
+
+          log "GEN|INFO|Check if $pd mounted on $pm" t
+          if [[ `grep "$pd on $pm" < <(mount) | wc -l` > 0 ]]; then
+              log "GEN|INFO|Unmounting $pd from $pm" t
+              sudo umount -v $pd
+              [ $? -gt 0 ] && return 1
+          fi
+          ((x++))
+      done
+      return 0
+  }
+
+#+END_SRC
+
 #+NAME: checkSources
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
   function checkSources {
@@ -338,9 +381,9 @@
 
 #+END_SRC
 
-#+NAME: checkStructPerm
+#+NAME: checkStruct
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
-  function checkStructPerm {
+  function checkStruct {
       log "GEN|INFO|Checking $LFS/tools." t
       if [ ! -d $LFS/tools ]; then
           log "GEN|WARNING|$LFS/tools does not exists, creating." t
@@ -350,10 +393,20 @@
           log "GEN|WARNING|/tools does not exists, creating." t
           sudo ln -sv $LFS/tools /
       fi
-      ### I don't check because maybe a file was downloaded at a later date.
-      ### This way we are sure permission are correct.
+  }
+
+#+END_SRC
+
+#+NAME: checkPerm
+#+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
+  function checkPerm {
       log "GEN|INFO|Checking permission and ownership" t
-      declare -a toCheck=($LFS/tools $sd $devBase/etc $devBase/var $lfsUserHome)
+      declare -a toCheck
+      if [ $1 ]; then
+          toCheck=($1)
+      else
+          toCheck=($LFS/tools $sd $devBase/etc $devBase/var $lfsUserHome)
+      fi
       for d in ${toCheck[@]}; do
           for file in $d/* -R; do
               if [[ -f $file ]]; then
@@ -378,7 +431,8 @@
       checkLfsUser
       mountLfs
       checkSources
-      checkStructPerm
+      checkStruct
+      checkPerm
   }
 
 #+END_SRC
@@ -1191,11 +1245,15 @@ rm -fr $sdn
 #+NAME: quit
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
   function quitPkm {
-      declare ret=0
-      if [ $1 ]; then ret=$1; fi
-      exec {genLogFD}>&-
-      exec {pkgLogFD}>&-
-      exec {errLogFD}>&-
+      declare ret=0 ## Default exit value
+      if [ $1 ]; then ret=$1; fi ## Override exit value
+
+      unMountLfs
+      [ $? -gt 0 ] && echo "ERROR with unMountLfs, CHECK YOUR SYSTEM." && ret=1
+
+      exec {genLogFD}>&- 2>/dev/null
+      exec {pkgLogFD}>&- 2>/dev/null
+      exec {errLogFD}>&- 2>/dev/null
       unset genLogFile pkgLogFile errLogFile
       unset genLogFD pkgLogFD errLogFD
 
@@ -1434,11 +1492,8 @@ do
     case "$arg" in
         --updatePkgFromLocal)
             updatePkgFromLocal
-            if [[ $? > 0 ]]; then
-                echo "Error happen, check your installation."
-                exit 1
-            fi
-            exit 0
+            [ $? -gt 0 ] && echo "Error happen, check your installation." && quitPkm 1
+            quitPkm 0
             ;;
         --updatePkm)
             updatePkm
