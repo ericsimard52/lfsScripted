@@ -1,10 +1,7 @@
-pushd gettext-tools >/dev/null
+mPush gettext-tools
 EMACS="no" ./configure --prefix=/tools --disable-shared
 
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with configure." t
-    popd > /dev/null
-    return 1
-fi
-popd > /dev/null
+[ $? -gt 0 ] && log "PKG|ERROR|Error with configure." t && mPop && return 1
+
+mPop
 return 0

@@ -1,9 +1,5 @@
-pushd gettext-tools >/dev/null
+mPush gettext-tools
 cp -v src/{msgfmt,msgmerge,xgettext} /tools/bin
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with install." t
-    popd > /dev/null
-    return 1
-fi
-popd > /dev/null
+[ $? -gt 0 ] && log "PKG|ERROR|Error with install." t && mPop && return 1
+mPop
 return 0

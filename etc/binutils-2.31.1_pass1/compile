@@ -1,0 +1,8 @@
+
+processCmd "make"
+[ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error processing make. Aborting!" t && return 1
+
+case $(uname -m) in
+    x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
+esac
+return 0

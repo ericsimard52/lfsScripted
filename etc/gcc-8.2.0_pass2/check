@@ -1,0 +1,13 @@
+echo 'int main(){}' > dummy.c
+cc dummy.c
+readelf -l a.out | grep ': /tools'
+promptUser "Looks good? [Yn]"
+read c
+case $c in
+    [nN])
+        log "PKG|ERROR|User reported error." t
+        processCmd "rm -v dummy.c a.out"
+        return 1
+esac
+processCmd "rm -v dummy.c a.out"
+return 0

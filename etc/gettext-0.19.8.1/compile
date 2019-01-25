@@ -1,36 +1,18 @@
-pushd gettext-tools > /dev/null
+mPush gettext-tools
 processCmd "make -C gnulib-lib"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with gnulib-lib" t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with gnulib-lib" t && mPop && return 1
+
 processCmd "make -C intl pluralx.c"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with intl pluralx.c" t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with intl pluralx.c" t && mPop && return 1
 
 processCmd "make -C src msgfmt"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with src msgfmt" t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with src msgfmt" t && mPop && return 1
 
 processCmd "make -C src msgmerge"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with src msgmerge" t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with src msgmerge" t && mPop && return 1
 
 processCmd "make -C src xgettext"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with src xgettext" t
-    popd > /dev/null
-    return 1
-fi
-popd > /dev/null
+[ $? -gt 0 ] && log "PKG|ERROR|Error with src xgettext" t && mPop && return 1
+
+mPop
 return 0

@@ -91,12 +91,13 @@
       processCmd "sudo cp -fv $lfsUserHome/lfsScripted/etc/pkm.conf $lfsUserHome/lfsScripted/etc/pkm.conf.bak"
 
       log "GEN|INFO|Copy source scripts to $lfsUserHome" t
-      processCmd "sudo cp -frv $devBase/etc/* $lfsUserHome/lfsScripted/etc/"
+      processCmd "sudo cp -frv .//etc/* $lfsUserHome/lfsScripted/etc/"
 
       log "GEN|INFO|Restaure pkm.conf it got overwriten." t
       processCmd "sudo mv -v $lfsUserHome/lfsScripted/etc/pkm.conf.bak $lfsUserHome/lfsScripted/etc/pkm.conf"
 
       checkPerm $lfsUserHome/lfsScripted
+      checkPerm $lfsUserHome/lfsScripted/etc
       [ $? -gt 0 ] && quitPkm 1 "Error with checkPerm in updatePkgFromLocal"
       return 0
   }
@@ -416,20 +417,29 @@
           toCheck=($LFS/tools $sd $devBase/etc $devBase/var $lfsUserHome)
       fi
       for d in ${toCheck[@]}; do
-          for file in $d/* -R; do
-              if [[ -f $file ]]; then
-                  fls=`ls $file`
+          log "GEN|INFO|Check permissions and owners of $d" t
+          if [ -d $d ]; then
+              for file in $d/*; do
                   user=`stat -c %U $file`
+                  log "GEN|INFO|Owner of $file: $user"
                   if [[ ! "$user" = "lfs" ]]; then
                       log "GEN|INFO|Fixing ownership of $file." t
-                      processCmd "sudo chown -v lfs:lfs $file"
-                      processCmd "sudo chmod g+w -v $file"
+                      processCmd "sudo chown -vR lfs:lfs $file"
+                      processCmd "sudo chmod g+w -vR $file"
                   fi
+
+              done
+          elif [ -f $d ]; then
+              user=`stat -c %U $d`
+              log "GEN|INFO|Owner of $file: $user"
+              if [[ ! "$user" = "lfs" ]]; then
+                  log "GEN|INFO|Fixing ownership of $file." t
+                  processCmd "sudo chown -v lfs:lfs $file"
+                  processCmd "sudo chmod g+w -v $file"
               fi
-          done
+          fi
       done
   }
-
 #+END_SRC
 
 #+NAME: startupCheck
@@ -540,7 +550,7 @@
           iv=$iv"0"
       done
 
-      log "GEN|INFO|iv: $iv nv: $nv" t
+      log "GEN|INFO|iv: $iv nv: $nv" - t
       unset ivCount nvCount nvPad ivPad i
       case "$cp" in
           ">")
@@ -614,8 +624,7 @@
   ###
   function log {
       if [ $3 ] && [[ $DEBUG = 0 ]]; then
-          echo "Ignoring debug message, DEBUG:$DEBUG"
-          return
+            return
       fi
       declare LEVEL COLOR MSG M CALLER
       declare -a FDs # Array of file descriptor where messages needs to be redirected to.
@@ -864,7 +873,7 @@
           return 1
       fi
 
-      log "PKG|INFO|Running Cmd: $unpackCmd" t
+      log "PKG|INFO|Running Cmd: $unpackCmd" t t
       mPush $sd
       processCmd "${unpackCmd}"
       [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error unpacking with $unpackCmd" t && return 1
@@ -882,75 +891,60 @@
 
 #+NAME: autoInstall
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
-function autoInstall {
-    log "GEN|INFO|AutoInstall: Will be running the following tasks:"
-    i=0
-    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
-        echo "${autoInstallCmdList[$i]}"
-        ((i++))
-    done
-    promptUser "Do you wanto start now?"
-    read y
-    case $y in
-        [nN])
-            return
-            ;;
-        [yY]|*)
-            runAutoInstall
-            ;;
-    esac
-}
+  function autoInstall {
+      log "GEN|INFO|AutoInstall will be running the following tasks:"
+      i=0
+      while [[ $i < ${#autoInstallCmdList[@]} ]]; do
+          echo "${autoInstallCmdList[$i]}"
+          ((i++))
+      done
+      promptUser "Do you wanto start now?"
+      read y
+      case $y in
+          [nN])
+              return
+              ;;
+          [yY]|*)
+              runAutoInstall
+              [ $? -gt 0 ] && log "{GEN,ERR}|ERROR|Error during autoInstall." t && return 1
+              ;;
+      esac
+  }
 
 #+END_SRC
 
 #+NAME: runAutoInstall
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
-function runAutoInstall {
-    i=0
-    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
-        f=${autoInstallCmdList[$i]}
-        fbase=$(basename $f)
-        echo "$fbase"
-        if [ "$fbase" = "postImplement" ]; then
-            if [[ $bypassImplement > 0 ]]; then
-                log "GEN|INFO|Post Implement detected, running Implement first." true
-                implementPkg
-                isImplemented=0
-            else
-                log "GEN|INFO|Post Implement detected, and bypass Implement flag is set." true
-            fi
-        fi
-        log "GEN|INFO|Sourcing $f." true
-        evalPrompt $fbase
-        res=$?
-        if [[ $res > 0 ]]; then
-            log "{PKG,ERR}|ERROR|Error sourcing $f." true
-            return $res
-        fi
-        if [ "$fbase" = "check" ]; then
-            promptUser "Just finished checks, verify it. Do I keep going? Y/n"
-            read t
-            case $t in
-                [Nn])
-                    return 1
-                    ;;
-                [Yy]|*)
-                    ((i++))
-                    continue
-                    ;;
-            esac
-        fi
-        ((i++))
-    done
+  function runAutoInstall {
+      ii=0
+      log "PKG|INFO|Starting auto install." t
+      while [[ $ii < ${#autoInstallCmdList[@]} ]]; do
+          f=${autoInstallCmdList[$ii]}
+          ((ii++))
+          log "GEN|INFO|Sourcing $f." true
+          evalPrompt $f
+          res=$?
+          log "GEN|INFO|Came back from evalPrompt with $res" t
+          [ $res -gt 0 ] && log "{PKG,ERR}|ERROR|Error sourcing $f. Aborting!" t && return 1
+          if [ "$f" = "check" ]; then
+              promptUser "Just finished checks, verify it. Do I keep going? Y/n"
+              read t
+              case $t in
+                  [Nn])
+                      log "{PKG|ERR}|ERROR|User reported error. Aborting!" t
+                      return 1
+                      ;;
+                  [Yy]|*)
+                      ((ii++))
+                      continue
+                      ;;
+              esac
+          fi
 
-    if [[ $isImplemented > 0 ]]; then
-        log "{GEN,PKG}|INFO|Implementing pkg." t
-        implementPkg
-        isImplemented=0
-    fi
-    cleanup
-    return 0
-}
+      done
+      log "PKG|INFO|Auto install completed, all seems to be good." t
+      return 0
+  }
 
 #+END_SRC
 
@@ -1003,52 +997,12 @@ function runAutoInstall {
   }
 #+END_SRC
 
-#+NAME: listCommands
-#+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
-  function listCommands {
-      declare cmd
-      COLOR="\e[32]"
-      promptUser "Which command?"
-      read x
-      case $x in
-          preconfig | all)
-              c="cat $preConfigCmdFile"
-              eval $c | tee -a 2>> $ld/${lf[0]}
-              ;;
-          config | all)
-              i=0
-              ;;
-          compile | all)
-              i=0
-              ;;
-          check | all)
-              i=0
-              ;;
-          preInstall | all)
-              i=0
-              ;;
-          install | all)
-              i=0
-              ;;
-          preImplement | all)
-              i=0
-              ;;
-          postImplement | all)
-              i=0
-              ;;
-
-      esac
-
-
-  }
-#+END_SRC
-
 #+NAME: promptUser
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
-function promptUser {
-COLOR="\e[37m"
-echo -en $COLOR$1" : \e[0m"
-}
+  function promptUser {
+      COLOR="\e[37m"
+      echo -en $COLOR$1" : \e[0m"
+  }
 #+END_SRC
 
 #+NAME: sourceScript
@@ -1058,7 +1012,7 @@ echo -en $COLOR$1" : \e[0m"
       log "GEN|INFO|Sourcing: $c" t
       source $c
       res=$?
-      log "GEN|INFO|Sourced $c returned: $res" t
+      [ $res -gt 0 ] && log "GEN|INFO|Success." t || log "{GEN,ERR}|ERROR|Failed." t
       return $res
   }
 #+END_SRC
@@ -1176,107 +1130,75 @@ echo -en $COLOR$1" : \e[0m"
           listcommands)
               listCommands
               ;;
-          fetch)
-              fetchPkb
-              ;;
           unpack)
               unpack
+              return $?
               ;;
           depcheck)
-              log "GEN|INFO|Running dependency check scripts" true
+              log "GEN|INFO|Running dependency check scripts" t
               sourceScript "${depcheckCmdFile}"
+              return $?
               ;;
           preconfig)
+              log "GEN|INFO|Running pre-config scripts" t
               if [ $hasBuildDir -lt 1 ]; then
-                  pushd $sd/$sdn > /dev/null
+                  mPush $sd/$sdn
               else
-                  pushd $buildDir >/dev/null
-              fi
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  return 1
+                  mPush $buildDir
               fi
               sourceScript "${preconfigCmdFile}"
-              log "GEN|INFO|Running pre-config scripts" true
-              popd > /dev/null 2>&1
+              res=$?
+
+              mPop
+              return $res
               ;;
           config)
               log "GEN|INFO|Running config scripts" true
-              pushd $buildDir > /dev/null
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  return 1
-              fi
+              mPush $buildDir
               sourceScript "${configCmdFile}"
-              popd > /dev/null 2>&1
+              res=$?
+              mPop
+              return $res
               ;;
           compile)
               log "GEN|INFO|Running compile scripts" true
-              pushd $buildDir > /dev/null
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  exit 1
-              fi
+              mPush $buildDir
               sourceScript "${compileCmdFile}"
-              popd > /dev/null 2>&1
+              res=$?
+              mPop
+              return $res
               ;;
           check)
               log "GEN|INFO|Running check scripts" true
-              pushd $buildDir > /dev/null
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  return 1
-              fi
+              mPush $buildDir
               sourceScript "${checkCmdFile}"
-              popd > /dev/null 2>&1
+              res=$?
+              mPop
+              return $res
               ;;
           preinstall)
               log "GEN|INFO|Running PreInstall scripts" true
-              pushd $buildDir > /dev/null
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  return 1
-              fi
+              mPush $buildDir
               sourceScript "${preInstallCmdFile}"
-              popd > /dev/null 2>&1
+              res=$?
+              mPop
+              return $res
               ;;
           install)
               log "GENINFO|Running install scripts" true
-              pushd $buildDir > /dev/null
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  return 1
-              fi
+              mPush $buildDir
               sourceScript "${installCmdFile}"
-              popd > /dev/null 2>&1
+              res=$?
+              mPop
+              return $res
               ;;
           preimplement)
               log "GEN|INFO|Running preImplement scripts" true
-              pushd $buildDir > /dev/null
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  return 1
-              fi
+              mPush $buildDir
               sourceScript "${preImplementCmdFile}"
-              popd > /dev/null 2>&1
-              ;;
-          implement)
-              if [[ $bypassImplement < 1 ]]; then
-                  log "{GEN,ERR}|ERROR|bypassImplement flag is set, unable to proceed with implement request." t
-                  return 1
-              fi
-              log "GEN|INFO|Running implement procedure." t
-              implementPkg
-              ;;
-          postimplement)
-              log "GEN|INFO|Running PostImplement scripts" true
-              pushd $buildDir > /dev/null
-              if [[ $? > 0 ]]; then
-                  log "ERR|FATAL|pushd to $buildDir failed." true
-                  return 1
-              fi
-              sourceScript "${postImplementCmdFile}"
-              popd > /dev/null 2>&1
+              res=$?
+              mPop
+              return $res
               ;;
           autoinstall)
               autoInstall
@@ -1320,6 +1242,7 @@ echo -en $COLOR$1" : \e[0m"
               ;;
           ,*)
               log "GEN|INFO|Unknown command: $1" t
+              return 1
               ;;
       esac
 
@@ -1329,47 +1252,43 @@ echo -en $COLOR$1" : \e[0m"
 
 #+NAME: prompt
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
-function prompt {
-while true; do
-promptUser "Input."
-read -e command
-evalPrompt $command
-done
-}
+  function prompt {
+      while true; do
+          promptUser "Input."
+          read -e command
+          evalPrompt $command
+          [ $? -gt 0 ] && log "{GEN,ERR}|ERROR|EvalPrompt returned error." t t
+      done
+  }
 #+END_SRC
 
 #+NAME: main
 #+BEGIN_SRC bash :eval no :exports code :tangle pkm.sh :tangle-mode (identity #o0755)
-## Checking user parameters
-for arg in "$@"
-do
-    case "$arg" in
-        --updatePkgFromLocal)
-            updatePkgFromLocal
-            [ $? -gt 0 ] && echo "Error happen, check your installation." && quitPkm 1
-            quitPkm 0
-            ;;
-        --updatePkm)
-            updatePkm
-            if [[ $? > 0 ]]; then
-                echo "Error happen, check your installation."
-                exit 1
-            fi
-            exit 0
-    esac
-done
+  ## Checking user parameters
+  for arg in "$@"
+  do
+      case "$arg" in
+          --updatePkgFromLocal)
+              updatePkgFromLocal
+              [ $? -gt 0 ] && quitPkm 1 "Error happen, check your installation."
+              quitPkm 0
+              ;;
+          --updatePkm)
+              updatePkm
+              [ $? -gt 0 ] && quitPkm 1 "Error happen, check your installation."
+              quitPkm 0
+      esac
+  done
 
 
 
 
-singleton ## Ensure only one instance runs.
-if [[ $? > 0 ]]; then
-    exit 1
-fi
-log "NULL|INFO|Starting PKM" t
-readConfig
-startLog
-startupCheck
-prompt
+  singleton ## Ensure only one instance runs.
+  [ $? -gt 0 ] && quitPkm 1 "Singleton check failed."
+  log "NULL|INFO|Starting PKM" t
+  readConfig
+  startLog
+  startupCheck
+  prompt
 
 #+END_SRC

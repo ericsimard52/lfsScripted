@@ -1,35 +1,18 @@
-pushd unix >/dev/null
+mPush unix
 processCmd "make install"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with install." t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with install." t && mPop && return 1
 
 log "PKG|INFO|Making libraries writable." t
 processCmd "chmod -v u+w /tools/lib/libtcl8.6.so"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error making libraries writable." t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error making libraries writable." t && mPop && return 1
 
 log "PKG|INFO|Installing tcl's headers." t
 processCmd "make install-private-headers"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error installing." t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error installing." t && mPop && return 1
 
 log "PKG|INFO|Creating needed links." t
 processCmd "ln -sv tclsh8.6 /tools/bin/tclsh"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error linking." t
-    popd > /dev/null
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error linking." t && mPop && return 1
 
-
-popd > /dev/null
+mPop
 return 0

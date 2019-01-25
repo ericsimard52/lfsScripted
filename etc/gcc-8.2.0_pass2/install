@@ -1,0 +1,7 @@
+processCmd "make install"
+[ $? -gt 0 ] && log "PKG|ERROR|Error install pass 2" t && return 1
+
+log "PKG|INFO|Linking gcc to /tools/bin/cc" t
+processCmd "ln -sv gcc /tools/bin/cc"
+[ $? -gt 0 ] && log "PKG|ERROR|Error in linking." t && return 1
+return 0

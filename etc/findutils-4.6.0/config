@@ -1,26 +1,15 @@
 log "PKG|INFO|Some fixes required by glibc"
 sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' gl/lib/*.c
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with first sed." t
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with first sed." t && return 1
 
 sed -i '/unistd/a #include <sys/sysmacros.h>' gl/lib/mountlist.c
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with second sed." t
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with second sed." t && return 1
+
 
 echo "#define _IO_IN_BACKUP 0x100" >> gl/lib/stdio-impl.h
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with first echo." t
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with first echo." t && return 1
 
 processCmd "./configure --prefix=/tools"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with first configure." t
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with first configure." t && return 1
 
 return 0

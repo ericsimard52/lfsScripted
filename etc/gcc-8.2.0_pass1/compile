@@ -1,0 +1,3 @@
+processCmd "make"
+[ $? -gt 0 ] && log "PKG|ERROR|Error compiling pass 1." t && return 1
+return 0

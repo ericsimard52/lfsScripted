@@ -1,0 +1,7 @@
+    processCmd "make"
+
+    if [[ $? > 0 ]]; then
+        log "PKG|ERROR|Error processing make" t
+        return 1
+    fi
+    return 0

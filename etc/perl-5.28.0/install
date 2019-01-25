@@ -1,18 +1,9 @@
 processCmd "cp -v perl cpan/podlators/scripts/pod2man /tools/bin"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with task 1." t
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with task 1." t && return 1
 
 processCmd "mkdir -pv /tools/lib/perl5/5.28.0"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with task 2." t
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with task 2." t && return 1
 
 processCmd "cp -Rv lib/* /tools/lib/perl5/5.28.0"
-if [[ $? > 0 ]]; then
-    log "PKG|ERROR|Error with task 3." t
-    return 1
-fi
+[ $? -gt 0 ] && log "PKG|ERROR|Error with task 3." t && return 1
 return 0
