@@ -1,5 +1,5 @@
 mPush unix
 processCmd "make"
 [ $? -gt 0 ] && log "PKG|ERROR|Error in compile." t && mPop && return 1
-
+mPop
 return 0
