@@ -22,4 +22,25 @@ processCmd "sudo rm -v master.zip"
 processCmd "sudo cp -vfr $pkmPath_/Pkm/FAKEROOT/* $LFS/"
 [ $? -gt 0 ] && log "GEN|ERROR|Error copying pkm in system files." t && mPop && return 1
 mPop
+
+log "GEN|INFO|Creating needed symlink" t
+sudo chroot "$LFS" /tools/bin/env -i \
+     HOME=/root                  \
+     TERM="$TERM"                \
+     PS1='(lfs chroot) \u:\w\$ ' \
+     PATH=/bin:/usr/bin:/sbin:/usr/sbin:/tools/bin \
+     /tools/bin/bash /usr/bin/pkmFirstRun.sh
+if [ $? -gt 0 ]; then
+    log "ERR|FATAL|Error during pkmFirstRun.sh Check your temporary tool chain to make sure all directory and links are there." t
+    return 1
+fi
+
+log "GEN|INFO|Removing pkmFirstRun.sh"
+processCmd "sudo rm -v $LFS/usr/bin/pkmFirstRun.sh"
+if [ $? -gt 0 ]; then
+    log "ERR|ERROR|Error removing pkmFirstRun.sh from lfs chroot environment."t
+fi
+
+log "GEN|INFO|It is now safe to remove the lfs user. Inside your original user home directory, you should still have lfsScripted. Adjust the script enterLfs.sh and run it to chroot into your temp lfs toolchain." t
+
 return 0

@@ -1,32 +1,30 @@
 #!/bin/bash
 
-declare devBase="/home/lfs/lfsScripted"
-declare configFile="$devBase/etc/pkm.conf"
-declare sd td sdn sdnConf pkg ext hasBuildDir buildDir confBase wgetUrl LFS lfsUserHome
-declare -a partitionDev partitionName partitionMount partitionFs
-declare unpackCmd
+declare DEVBASE="$HOME/Git/lfsScripted"
+declare CONFIGFILE="$DEVBASE/etc/pkm.conf"
+declare SD SDN SDNCONF PKG EXT HASBUILDDIR BUILDDIR CONFBASE WGETURL LFS LFSUSERHOME
+declare -a PARTITIONDEV PARTITIONNAME PARTITIONMOUNT PARTITIONFS
+declare UNPACKCMD
 declare MAKEFLAGS
 declare DEBUG=0 # 0=OFF, 1= ON, debug is always sent to log file, turn on make is print to stdOut
-declare genLogFile pkgLogFile errLogFile
-declare genLogFD pkgLogFD errLogFD #File descriptor input only
-declare bypassImplement=0 # Implementation bypassed in temp toolchain, we do not use fakeroot.
+declare GENLOGFILE PKGLOGFILE ERRLOGFILE
+declare GENLOGFD PKGLOGFD ERRLOGFD #File descriptor input only
 
 # Config files
-declare genConfigFile depcheckCmdFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile
-declare preInstallCmdFile installCmdFile
-declare -a cmdFileList
-declare -a autoInstallCmdList
+declare GENCONFIGFILE DEPCHECKCMDFILE PRECONFIGCMDFILE CONFIGCMDFILE COMPILECMDFILE CHECKCMDFILE
+declare PREINSTALLCMDFILE INSTALLCMDFILE
+declare -a CMDFILELIST AUTOINSTALLCMDLIST
 
 function singleton {
-    if [ -f $devBase/var/run/pkm/pkm.lock ]; then
-        echo "Pkm is already running or has not quit properly, in that case, remove $devBase/var/run/pkm/pkm.lock" t
+    if [ -f $DEVBASE/var/run/pkm/pkm.lock ]; then
+        echo "Pkm is already running or has not quit properly, in that case, remove $DEVBASE/var/run/pkm/pkm.lock" t
         return 1
     fi
-    touch $devBase/var/run/pkm/pkm.lock
+    touch $DEVBASE/var/run/pkm/pkm.lock
     [ $? -gt 0 ] && echo "Unable to create lock file. Ensure only 1 instance is running."
 
     # If we are lfs user, we assume installation is done and proceed as normal.
-    usr=`whoami`
+    declare usr=`whoami`
     if [[ $usr == "lfs" ]]; then
         echo "We are lfs, we assume this is a normal startup."
         return 0
@@ -35,20 +33,26 @@ function singleton {
     ## We are not lfs user, but if it exists, warn to run as lfs
     grep -q lfs < /etc/passwd
     if [[ $? == 0 ]] && [ $USER != "lfs" ]; then
+        unset usr
         quitPkm 1 "Run this program as lfs user."
     fi
+    unset usr
 
     ## We are not lfs user and it does not exists, install lfsScripted.
     readConfig
-    startlog
-    startupCheck
+    startLog
+    checkLfsUser
+    [ $? -gt 0 ] && quitPkm 1 "Error with checkLfsUser"
     log "GEN|INFO|Installing lfsScripted into lfs home folder." t
-    processCmd "sudo cp -fr $devBase $lfsUserHome"
-    [ $? -gt 0 ] && quitPkm 1 "Error copy $devBase -> $lfsUserHome"
-    checkPerm $lfsUserHome/$devBase
-    [ $? -gt 0 ] && quitPkm 1 "Error in checkPerm $lfsUserHome/$devBase"
-    echo "Su to lfs user, check pkm.conf and variable in pkm.sh"
-    echo "Then you can run the installer."
+    processCmd "sudo cp -fr $DEVBASE $LFSUSERHOME"
+    [ $? -gt 0 ] && quitPkm 1 "Error copy $DEVBASE -> $LFSUSERHOME"
+
+    sudo sed -i -e 's:Git/::g' $LFSUSERHOME/lfsScripted/pkm.sh
+    sudo sed -i -e 's:tech:lfs:g' $LFSUSERHOME/lfsScripted/etc/pkm.conf
+    checkPerm $LFSUSERHOME/lfsScripted
+    [ $? -gt 0 ] && quitPkm 1 "Error in checkPerm $LFSUSERHOME/lfsScripted"
+    echo "Su to lfs user, check pkm.conf and variable DEVBASE in pkm.sh"
+    echo "Then su - lfs && cd lfsScripted && ./pkm.sh."
     quitPkm 0
 }
 
@@ -57,17 +61,18 @@ function singleton {
 function updatePkgFromLocal {
     readConfig
     startLog
-    log "GEN|INFO|Making backup of pkm.conf in $lfsUserHome" t
-    processCmd "sudo cp -fv $lfsUserHome/lfsScripted/etc/pkm.conf $lfsUserHome/lfsScripted/etc/pkm.conf.bak"
+    log "GEN|INFO|Making backup of pkm.conf in $LFSUSERHOME" t
+    processCmd "sudo cp -fv $LFSUSERHOME/lfsScripted/etc/pkm.conf $LFSUSERHOME/lfsScripted/etc/pkm.conf.bak"
 
-    log "GEN|INFO|Copy source scripts to $lfsUserHome" t
-    processCmd "sudo cp -frv .//etc/* $lfsUserHome/lfsScripted/etc/"
+    log "GEN|INFO|Copy source scripts to $LFSUSERHOME" t
+    processCmd "sudo cp -frv ./etc/* $LFSUSERHOME/lfsScripted/etc/"
 
     log "GEN|INFO|Restaure pkm.conf it got overwriten." t
-    processCmd "sudo mv -v $lfsUserHome/lfsScripted/etc/pkm.conf.bak $lfsUserHome/lfsScripted/etc/pkm.conf"
+    processCmd "sudo mv -v $LFSUSERHOME/lfsScripted/etc/pkm.conf.bak $LFSUSERHOME/lfsScripted/etc/pkm.conf"
 
-    checkPerm $lfsUserHome/lfsScripted
-    checkPerm $lfsUserHome/lfsScripted/etc
+    checkPerm $LFSUSERHOME/lfsScripted
+    [ $? -gt 0 ] && quitPkm 1 "Error with checkPerm in updatePkgFromLocal"
+    checkPerm $LFSUSERHOME/lfsScripted/etc
     [ $? -gt 0 ] && quitPkm 1 "Error with checkPerm in updatePkgFromLocal"
     return 0
 }
@@ -78,43 +83,44 @@ function updatePkm {
     readConfig
     startLog
     log "GEN|INFO|Installing pkm.sh into lfs home." t
-    processCmd "sudo cp -vf ./pkm.sh $lfsUserHome/lfsScripted"
+    processCmd "sudo cp -vf ./pkm.sh $LFSUSERHOME/lfsScripted"
     [ $? -gt 0 ] && quitPkm 1 "Error with cp pkm.sh to lfs"
-    checkPerm $lfsUserHome/lfsScripted/pkm.sh
+    sudo sed -i -e 's:Git/::g' $LFSUSERHOME/lfsScripted/pkm.sh
+    sudo sed -i -e 's:tech:lfs:g' $LFSUSERHOME/lfsScripted/etc/pkm.conf
+    checkPerm $LFSUSERHOME/lfsScripted/pkm.sh
     [ $? -gt 0 ] && quitPkm 1 "Error with checkPerm in updatePkm."
-    echo "Remember check top 2 variable."
     quitPkm 0
 }
 
 function startLog {
-    if [ ! -f $genLogFile ]; then
-        log "NULL|INFO|Creating $genLogFile" t
-        touch $genLogFile
-        chmod 666 -v $genLogFile
+    if [ ! -f $GENLOGFILE ]; then
+        log "NULL|INFO|Creating $GENLOGFILE" t
+        touch $GENLOGFILE
+        chmod 666 -v $GENLOGFILE
     fi
-    if [ ! -f $pkgLogFile ]; then
-        log "NULL|INFO|Creating $pkgLogFile" t
-        touch $pkgLogFile
-        chmod 666 -v $pkgLogFile
+    if [ ! -f $PKGLOGFILE ]; then
+        log "NULL|INFO|Creating $PKGLOGFILE" t
+        touch $PKGLOGFILE
+        chmod 666 -v $PKGLOGFILE
     fi
-    if [ ! -f $errLogFile ]; then
-        log "NULL|INFO|Creating $errLogFile" t
-        touch $errLogFile
-        chmod 666 -v $errLogFile
+    if [ ! -f $ERRLOGFILE ]; then
+        log "NULL|INFO|Creating $ERRLOGFILE" t
+        touch $ERRLOGFILE
+        chmod 666 -v $ERRLOGFILE
     fi
     log "NULL|INFO|Creating file descriptor for logs" t
-    exec {genLogFD}>$genLogFile
-    exec {pkgLogFD}>$pkgLogFile
-    exec {errLogFD}>$errLogFile
+    exec {GENLOGFD}>$GENLOGFILE
+    exec {PKGLOGFD}>$PKGLOGFILE
+    exec {ERRLOGFD}>$ERRLOGFILE
 
 }
 
 ###
-# Read config file stored in $configFile
+# Read config file stored in $CONFIGFILE
 ###
 function readConfig {
     log "NULL|INFO|Reading configuration file." t
-    if [ ! -f $configFile ]; then
+    if [ ! -f $CONFIGFILE ]; then
         log "NULL|ERROR|Configuration file: $configfile is missing." t
         quitPkm 1
     fi
@@ -128,62 +134,62 @@ function readConfig {
                 fi
                 ;;
             sd)
-                sd=${PARAM[1]}
-                log "NULL|INFO|Set param sd:$sd" t
+                SD=${PARAM[1]}
+                log "NULL|INFO|Set param sd:$SD" t
                 ;;
             confBase)
-                confBase=${PARAM[1]}
-                log "NULL|INFO|Set param confBase:$confBase" t
+                CONFBASE=${PARAM[1]}
+                log "NULL|INFO|Set param confBase:$CONFBASE" t
                 ;;
             MAKEFLAGS)
                 MAKEFLAGS=${PARAM[1]}
                 log "NULL|INFO|Set param MAKEFLAGS:$MAKEFLAGS" t
                 ;;
             bypassImplement)
-                bypassImplement=${PARAM[1]}
+                BYPASSIMPLEMENT=${PARAM[1]}
                 log "NULL|INFO|Set param bypassImplement:$bypassImplement" t
                 ;;
             genLog)
-                genLogFile=${PARAM[1]}
-                log "NULL|INFO|Set param genLogFile:$genLogFile" t
+                GENLOGFILE=${PARAM[1]}
+                log "NULL|INFO|Set param genLogFile:$GENLOGFILE" t
                 ;;
             pkgLog)
-                pkgLogFile=${PARAM[1]}
-                log "NULL|INFO|Set param pkgLogFile:$pkgLogFile" t
+                PKGLOGFILE=${PARAM[1]}
+                log "NULL|INFO|Set param pkgLogFile:$PKGLOGFILE" t
                 ;;
             errLog)
-                errLogFile=${PARAM[1]}
-                log "NULL|INFO|Set param errLogFile:$errLogFile" t
+                ERRLOGFILE=${PARAM[1]}
+                log "NULL|INFO|Set param errLogFile:$ERRLOGFILE" t
                 ;;
             partitionDev)
-                partitionDev=(${PARAM[1]})
-                log "NULL|INFO|Set param partitionDev:$partitionDev" t
+                PARTITIONDEV=(${PARAM[1]})
+                log "NULL|INFO|Set param partitionDev:$PARTITIONDEV" t
                 ;;
             partitionName)
-                partitionName=(${PARAM[1]})
-                log "NULL|INFO|Set param partitionName:$partitionName" t
+                PARTITIONNAME=(${PARAM[1]})
+                log "NULL|INFO|Set param partitionName:$PARTITIONNAME" t
                 ;;
             partitionMount)
-                partitionMount=(${PARAM[1]})
-                log "NULL|INFO|Set param partitionMount:$partitionMount" t
+                PARTITIONMOUNT=(${PARAM[1]})
+                log "NULL|INFO|Set param partitionMount:$PARTITIONMOUNT" t
                 ;;
             partitionFs)
-                partitionFs=(${PARAM[1]})
-                log "NULL|INFO|Set param partitionFs:$partitionFs" t
+                PARTITIONFS=(${PARAM[1]})
+                log "NULL|INFO|Set param partitionFs:$PARTITIONFS" t
                 ;;
             LFS)
                 LFS=${PARAM[1]}
                 log "NULL|INFO|Set param LFS:$LFS" t
                 ;;
             lfsUserHome)
-                lfsUserHome=${PARAM[1]}
-                log "NULL|INFO|Set param lfsUserHome:$lfsUserHome" t
+                LFSUSERHOME=${PARAM[1]}
+                log "NULL|INFO|Set param lfsUserHome:$LFSUSERHOME" t
                 ;;
             "#") continue;;
             *) continue;;
         esac
         unset IFS
-    done < $configFile
+    done < $CONFIGFILE
     export MAKEFLAGS
     log "NULL|INFO|Done reading config file." t
 }
@@ -193,21 +199,23 @@ function mountLfs {
     if [ ! -d $LFS ]; then
         log "GEN|ERROR|Mount point $LFS does not exist. Creating." t
         processCmd "sudo mkdir -pv $LFS"
+        [ $? -gt 0 ] && quitPkm 1 "GEN|FATAL|Error creating $LFS."
     fi
     log "GEN|INFO|Mounting partitions." t
     x=0
-    pl=${#partitionName[@]}
+    pl=${#PARTITIONNAME[@]}
     log "GEN|INFO|Got $pl partition to mount." t
     while [ $x -lt $pl ]; do
-        pn=${partitionName[$x]}
-        pm=${partitionMount[$x]}
-        pd=${partitionDev[$x]}
-        pf=${partitionFs[$x]}
+        pn=${PARTITIONNAME[$x]}
+        pm=${PARTITIONMOUNT[$x]}
+        pd=${PARTITIONDEV[$x]}
+        pf=${PARTITIONFS[$x]}
 
         if [[ "$pn" = "swap" ]]; then
             if [[ `grep /dev/ < <(sudo swapon -s) |wc -l` < 1 ]]; then
                 log "GEN|INFO|Found swap partition, Ativating." t
                 processCmd "sudo /sbin/swapon -v $pd"
+                [ $? -gt 0 ] && quitPkm 1 "Error activating swap"
                 log "GEN|WARNING|Swap should be last to mount, if not, next partition will not be mounted." t
                 return 0
             else
@@ -219,11 +227,13 @@ function mountLfs {
         if [ ! -d $LFS$pm ]; then
             log "GEN|WARNING|$LFS$pm does not exists, creating." t
             processCmd "sudo mkdir -pv $LFS$pm"
+            [ $? -gt 0 ] && quitPkm 1 "$LFS$pm does not exists and unable to create."
         fi
         log "GEN|INFO|Check if $pd mounted on $pm" t
         if [[ `grep "$pd on $pm" < <(mount) | wc -l` < 1 ]]; then
             log "GEN|INFO|Mounting $pd on $pm" t
             processCmd "sudo mount -v -t $pf $pd $LFS$pm"
+            [ $? -gt 0 ] && quitPkm 1 "Unable to mount $pd on $pm"
             ((x++))
         else
             log "GEN|INFO|$pd already mounted on $pm, skipping." t
@@ -236,13 +246,13 @@ function mountLfs {
 function unMountLfs {
     log "GEN|INFO|UnMounting partitions." t
     x=0
-    pl=${#partitionName[@]}
+    pl=${#PARTITIONNAME[@]}
     log "GEN|INFO|Got $pl partition to unmount." t
     while [ $x -lt $pl ]; do
-        pn=${partitionName[$x]}
-        pm=${partitionMount[$x]}
-        pd=${partitionDev[$x]}
-        pf=${partitionFs[$x]}
+        pn=${PARTITIONNAME[$x]}
+        pm=${PARTITIONMOUNT[$x]}
+        pd=${PARTITIONDEV[$x]}
+        pf=${PARTITIONFS[$x]}
 
         if [[ "$pn" = "swap" ]]; then
             log "GEN|WARN|Not turning off swap, there is a host system active." t
@@ -263,47 +273,54 @@ function unMountLfs {
 }
 
 function checkSources {
-    log "GEN|INFO|Checking if source directory $sd exists." t
-    if [ ! -d $sd ]; then
-        log "GEN|WARNING|Source directory $sd does not exists, creating." t
-        processCmd "sudo mkdir -vp $sd"
-        processCmd "sudo chmod -v a+wt $sd"
+    log "GEN|INFO|Checking if source directory $SD exists." t
+    if [ ! -d $SD ]; then
+        log "GEN|WARNING|Source directory $SD does not exists, creating." t
+        processCmd "sudo mkdir -vp $SD"
+        [ $? -gt 0 ] && quitPkm 1 "Unable to create $SD"
+        processCmd "sudo chmod -v a+wt $SD"
+        [ $? -gt 0 ] && log "GEN|WARNING|chmod a+wt on $SD reported failure, check manually." t
     fi
     log "GEN|INFO|Done." t
 
     log "GEN|INFO|Do we have wget.list?" t
-    if [ ! -f $confBase/wget.list ]; then
+    if [ ! -f $CONFBASE/wget.list ]; then
         log "GEN|WARNING|wget.list not found, fetching." t
-        processCmd "sudo wget -v -O $confBase/wget.list -v \"http://www.linuxfromscratch.org/lfs/view/stable/wget-list\""
+        processCmd "sudo wget -v -O $CONFBASE/wget.list -v \"http://www.linuxfromscratch.org/lfs/view/stable/wget-list\""
+        [ $? -gt 0 ] && quitPkm 1 "Unable to fetch wget.list. I will crash if I don't quit now"
     fi
     log "GEN|INFO|Do we have md5sums?" t
-    if [ ! -f $confBase/md5sums ]; then
+    if [ ! -f $CONFBASE/md5sums ]; then
         log "GEN|WARNING|md5sums not found, fetching." t
-        processCmd "sudo wget -v -O $confBase/md5sums -v \"http://www.linuxfromscratch.org/lfs/view/stable/md5sums\""
+        processCmd "sudo wget -v -O $CONFBASE/md5sums -v \"http://www.linuxfromscratch.org/lfs/view/stable/md5sums\""
+        [ $? -gt 0 ] && log "GEN|WARNING|Unable to fetch md5sums check list. Unsure how the program will behave at check time." t
     fi
 
     log "GEN|INFO|Checking source packages." t
-    for line in `cat $confBase/wget.list`; do
+    for line in `cat $CONFBASE/wget.list`; do
         fn=$(basename $line)
         log "GEN|INFO|Checking for $fn"
-        if [ ! -f $sd/$fn ]; then
+        if [ ! -f $SD/$fn ]; then
             log "GEN|INFO|$fn not found, fetching." t
-            if [[ $DEBUG > 0 ]]; then
-                processCmd "sudo wget -v $line -O $sd/$fn"
-            else
-                processCmd "sudo wget -v $line -O $sd/$fn >/dev/null"
-            fi
+            processCmd "sudo wget -v $line -O $SD/$fn"
+            [ $? -gt 0 ] && log "GEN|ERROR|Unable to fetch $fn." t
         fi
     done
     # Touch dummy pkg
-    if [ ! -e $sd/versionCheck.tar.xz ]; then
-        log "GEN|INFO|Creating dummy packages" t
-        processCmd "sudo touch $sd/versionCheck.tar.xz"
-    fi
+    declare -a _dummyPkgList=('versionCheck.tar.xz' 'stripping.tar.xz' 'changeOwner.tar.xz' 'installPkm')
+    declare _dp
+    for _dp in ${dummyPkgList[@]}; do
+        if [ ! -e $SD/$_dp ]; then
+            log "GEN|INFO|Creating dummy package $_dp" t
+            processCmd "sudo touch $SD/$_dp"
+            [ $? -gt 0 ] && log "GEN|WARNING|Unable to create $_dp dummy pkg. Also, make this better. Dummy Package will be needed more often." t
+        fi
+    done
+    unset _dummyPkgList _dp
     log "GEN|INFO|Checking md5." t
-    mPush $sd
-    processCmd "sudo md5sum -c $confBase/md5sums"
-    [ $? -gt 0 ] && mPop && log "{GEN,ERR}|ERROR|Source md5sum check failed. Check logs for details." t && return 1
+    mPush $SD
+    processCmd "sudo md5sum -c $CONFBASE/md5sums"
+    [ $? -gt 0 ] && mPop && quitPkm 1 "Source md5sum check failed. Check logs for details."
     mPop
     return 0
 }
@@ -314,18 +331,18 @@ function checkLfsUser {
     if [[ $? > 0 ]]; then
         log "GEN|WARNING|lfs group does not exists, creating." t
         processCmd "sudo groupadd lfs"
-        [ $? -gt 0 ] && return 1
+        [ $? -gt 0 ] && quitPkm 1 "Unable to create lfs group"
     fi
 
     grep -q lfs < /etc/passwd
     if [[ $? > 0 ]];then
         log "GEN|WARNING|lfs user not found. Fixing." t
-        processCmd "sudo useradd -s /bin/bash -g lfs -d $lfsUserHome -m -k $devBase/etc/lfsHomeSkel lfs"
-        [ $? -gt 0 ] && return 1
+        processCmd "sudo useradd -s /bin/bash -g lfs -d $LFSUSERHOME -m -k $DEVBASE/etc/lfsHomeSkel lfs"
+        [ $? -gt 0 ] && quitPkm 1 "Unable to add lfs user."
 
         log "GEN|INFO|Set password for lfs user." t
         processCmd "sudo passwd lfs"
-        [ $? -gt 0 ] && return 1
+        [ $? -gt 0 ] && quitPkm 1 "Error setting lfs password"
     fi
     return 0
 
@@ -336,12 +353,12 @@ function checkStruct {
     if [ ! -d $LFS/tools ]; then
         log "GEN|WARNING|$LFS/tools does not exists, creating." t
         processCmd "sudo mkdir -pv $LFS/tools"
-        [ $? -gt 0 ] && return 1
+        [ $? -gt 0 ] && quitPkm 1 "Error create $LFS/tools."
     fi
     if [ ! -h /tools ]; then
-        log "GEN|WARNING|/tools does not exists, creating." t
+        log "GEN|WARNING|/tools link does not exists, creating." t
         processCmd "sudo ln -sv $LFS/tools /"
-        [ $? -gt 0 ] && return 1
+        [ $? -gt 0 ] && quitPkm 1 "Error creating /tools link."
     fi
     return 0
 }
@@ -349,21 +366,24 @@ function checkStruct {
 function checkPerm {
     log "GEN|INFO|Checking permission and ownership" t
     declare -a toCheck
+    declare res=0
     if [ $1 ]; then
         toCheck=($1)
     else
-        toCheck=($LFS/tools $sd $devBase/etc $devBase/var $lfsUserHome)
+        toCheck=($LFS/tools $SD $DEVBASE/etc $DEVBASE/var $LFSUSERHOME)
     fi
     for d in ${toCheck[@]}; do
         log "GEN|INFO|Check permissions and owners of $d" t
         if [ -d $d ]; then
-            for file in $d/*; do
+            for file in $d; do
                 user=`stat -c %U $file`
                 log "GEN|INFO|Owner of $file: $user"
                 if [[ ! "$user" = "lfs" ]]; then
                     log "GEN|INFO|Fixing ownership of $file." t
                     processCmd "sudo chown -vR lfs:lfs $file"
+                    [ $? -gt 0 ] && log "GEN|ERROR|Error changing ownership of $file" t && res=1
                     processCmd "sudo chmod g+w -vR $file"
+                    [ $? -gt 0 ] && log "GEN|ERROR|Error changing mode of $file" t && res=1
                 fi
 
             done
@@ -373,10 +393,13 @@ function checkPerm {
             if [[ ! "$user" = "lfs" ]]; then
                 log "GEN|INFO|Fixing ownership of $file." t
                 processCmd "sudo chown -v lfs:lfs $file"
+                [ $? -gt 0 ] && log "GEN|ERROR|Error changing ownership of $file" t && res=1
                 processCmd "sudo chmod g+w -v $file"
+                [ $? -gt 0 ] && log "GEN|ERROR|Error changing mode of $file" t && res=1
             fi
         fi
     done
+    return $res
 }
 
 function startupCheck {
@@ -506,25 +529,25 @@ function vercomp {
 function dumpEnv {
 printf "\e[1mEnvironment Var:\e[0m
 \e[34mDEBUG: \e[32m$DEBUG
-\e[34msd: \e[32m$sd
-\e[34msdn: \e[32m$sdn
-\e[34mtf: \e[32m$tf
-\e[34msdnConf: \e[32m$sdnConf
-\e[34mext: \e[32m$ext
-\e[34mhasBuildDir: \e[32m$hasBuildDir
+\e[34msd: \e[32m$SD
+\e[34msdn: \e[32m$SDN
+\e[34mtf: \e[32m$TF
+\e[34mSDNCONF: \e[32m$SDNCONF
+\e[34mext: \e[32m$EXT
+\e[34mhasBuildDir: \e[32m$HASBUILDDIR
 \e[34mMAKEFLAGS: \e[32m$MAKEFLAGS
-\e[34mbuildDir: \e[32m$buildDir
+\e[34mbuildDir: \e[32m$BUILDDIR
 \e[34mLFS: \e[32m$LFS
-\e[34mconfigFile: \e[32m$configFile
-\e[34mconfBase: \e[32m$confBase
-\e[34mgenLog: \e[32m$genLogFile
-\e[34mgenLogFD: \e[32m$genLogFD
-\e[34mpkgLog: \e[32m$pkgLogFile
-\e[34mpkgLogFD: \e[32m$pkgLogFD
-\e[34mimpLog: \e[32m$impLogFile
-\e[34mimpLogFD: \e[32m$impLogFD
-\e[34merrLog: \e[32m$errLogFile
-\e[34merrLogFD: \e[32m$errLogFD\e[0m\n"
+\e[34mconfigFile: \e[32m$CONFIGFILE
+\e[34mconfBase: \e[32m$CONFBASE
+\e[34mgenLog: \e[32m$GENLOGFILE
+\e[34mgenLogFD: \e[32m$GENLOGFD
+\e[34mpkgLog: \e[32m$PKGLOGFILE
+\e[34mpkgLogFD: \e[32m$PKGLOGFD
+\e[34mimpLog: \e[32m$IMPLOGFILE
+\e[34mimpLogFD: \e[32m$IMPLOGFD
+\e[34merrLog: \e[32m$ERRLOGFILE
+\e[34merrLogFD: \e[32m$ERRLOGFD\e[0m\n"
 }
 
 ###
@@ -539,10 +562,10 @@ printf "\e[1mEnvironment Var:\e[0m
 ###
 function log {
     if [ $3 ] && [[ $DEBUG = 0 ]]; then
-          return
+        return
     fi
-    declare LEVEL COLOR MSG M CALLER
-    declare -a FDs # Array of file descriptor where messages needs to be redirected to.
+    declare _LEVEL _COLOR _MSG _M _LOGMSG _CALLER _CALLERLOG
+    declare -a _FDs # Array of file descriptor where messages needs to be redirected to.
     MSGEND="\e[0m" ## Clear all formatting
 
     ## Setting up file descriptor destination
@@ -556,94 +579,99 @@ function log {
                 t="${t/\}}"
                 t="${t/\{}"
                 case "$t" in
-                    GEN) FDs+=($genLogFD);;
-                    PKG) FDs+=($pkgLogFD);;
-                    ERR) FDs+=($errLogFD);;
+                    GEN) _FDs+=($GENLOGFD);;
+                    PKG) _FDs+=($PKGLOGFD);;
+                    ERR) _FDs+=($ERRLOGFD);;
                 esac
                 ((i++))
             done
             IFS='|'
             ;;
-        GEN) FDs+=($genLogFD);;
-        PKG) FDs+=($pkgLogFD);;
-        ERR) FDs+=($errLogFD);;
-        NULL|*) FDs+=();;
+        GEN) _FDs+=($GENLOGFD);;
+        PKG) _FDs+=($PKGLOGFD);;
+        ERR) _FDs+=($ERRLOGFD);;
+        NULL|*) _FDs+=();;
     esac
 
     ### Set color formatting
     case "${PARTS[1]}" in
         INFO)
-            LEVEL=INFO
-            COLOR="\e[35m"
+            _LEVEL=INFO
+            _COLOR="\e[35m"
             ;;
         WARNING)
-            LEVEL=WARNING
-            COLOR="\e[33m"
+            _LEVEL=WARNING
+            _COLOR="\e[33m"
             ;;
         ERROR)
-            LEVEL=ERROR
-            COLOR="\e[31m"
+            _LEVEL=ERROR
+            _COLOR="\e[31m"
             ;;
         FATAL)
-            LEVEL=FATAL
-            COLOR="\e[31m"
+            _LEVEL=FATAL
+            _COLOR="\e[31m"
             ;;
     esac
 
     ### Append message provided by caller
-    M="${PARTS[2]}"
-    if [[ "$M" = "" ]]; then
+    _M="${PARTS[2]}"
+    if [[ "$_M" = "" ]]; then
         log "NULL|ERROR|Empty log message?!?!" t
     fi
 
-    if [ $sdn ]; then
-        caller="\e[32m"$pkg"\e[0m "
-        callerLog=$pkg
+    if [ $SDN ]; then
+        _CALLER="\e[32m"$PKG"\e[0m "
+        _CALLERLOG=$PKG
     else
-        callerLog="NONE"
-        caller="\e[32mNONE\e[0m "
+        _CALLERLOG="NONE"
+        _CALLER="\e[32mNONE\e[0m "
     fi
-    MSG=$COLOR$LEVEL" - "$caller":"$COLOR$M$MSGEND ## Full message string
-    LOGMSG=$LEVEL" - "$callerLog":"$M
+    _MSG=$_COLOR$_LEVEL" - "$_CALLER":"$_COLOR$_M$_MSGEND ## Full message string
+    _LOGMSG=$_LEVEL" - "$_CALLERLOG":"$_M
     ### If $debug is set
     if [[ $DEBUG > 0 ]]; then
-        if [[ ! $FDs ]]; then
+        if [[ ! $_FDs ]]; then
             ## There is no file descriptor setup, printo stdOut and bail
-            echo -e "NO_DESTINATION -- "$MSG
-            unset IFS FDs LEVEL COLOR MSG M MSGEND i CALLER
+            echo -e "NO_DESTINATION -- "$_MSG
+            unset IFS _FDs _LEVEL _COLOR _MSG _M _MSGEND _LOGMSG _CALLER _CALLERLOG
             return
         fi
         i=0
         displayOnce=0
-        while [[ $i < ${#FDs[@]} ]]; do
-            echo $LOGMSG >&${FDs[$i]}
+        while [[ $i < ${#_FDs[@]} ]]; do
+            echo $_LOGMSG >&${_FDs[$i]}
             ((i++))
         done
     fi
 
     # Printo stdOut
     if [[ $2 ]] && [[ "$2" = "t" ]]; then
-        echo -e $MSG
+        echo -e $_MSG
     fi
 
-    unset IFS FDs LEVEL COLOR MSG M MSGEND i CALLER
+    unset IFS _FDs _LEVEL _COLOR _MSG _M _MSGEND _LOGMSG _CALLER _CALLERLOG
     return
 }
 
 function loadPkg {
-    if [[ $pkg ]]; then
-        log "GEN|INFO|Unloading $pkg from memory." t
+    if [[ $PKG ]]; then
+        log "GEN|INFO|Unloading $PKG from memory." t
         unloadPkg
     fi
-    promptUser "Which package?"
-    read pkg
-    if [[ "$pkg" == "" ]]; then
+
+    if [ $1 ]; then
+        PKG=$1
+    else
+        promptUser "Which package?"
+        read PKG
+    fi
+    if [[ "$PKG" == "" ]]; then
         log "ERR|INFO|Empty package provided..."
         return 1
     fi
-    if [ ! -d $confBase/$pkg ]; then
+    if [ ! -d $CONFBASE/$PKG ]; then
         declare -a foundFiles
-        for file in `find $confBase -maxdepth 1 -type d -iname "$pkg*"`; do
+        for file in `find $CONFBASE -maxdepth 1 -type d -iname "$PKG*"`; do
             promptUser "FoundFiles: $file\n Use it? Y/n"
             read u
             case $u in
@@ -652,27 +680,27 @@ function loadPkg {
                     ;;
                 [yY]|*)
                     log "GEN|INFO|Using: $file" t
-                    pkg=$(basename $file)
-                    if [ ! -d $confBase/$pkg ]; then
-                        log "ERR|FATAL|Could not find $pkg after finding it????" t
+                    PKG=$(basename $file)
+                    if [ ! -d $CONFBASE/$PKG ]; then
+                        log "ERR|FATAL|Could not find $PKG after finding it????" t
                         return 1
                     fi
                     break
                     ;;
             esac
         done
-        if [ ! -d $confBase/$pkg ]; then
-            log "ERR|FATAL|No package found for $pkg." t
+        if [ ! -d $CONFBASE/$PKG ]; then
+            log "ERR|FATAL|No package found for $PKG." t
             return 1
         fi
     fi
-    sdnConf=$confBase/$pkg
-    log "PKG|INFO|sdnConf set: $sdnConf." t
-    genConfigFile="$sdnConf/$pkg.conf"
-    log "PKG|INFO|genConfigFile set: $genConfigFile." t
-    if [ ! -f $genConfigFile ]; then
+    SDNCONF=$CONFBASE/$PKG
+    log "PKG|INFO|SDNCONF set: $SDNCONF." t
+    GENCONFIGFILE="$SDNCONF/$PKG.conf"
+    log "PKG|INFO|genConfigFile set: $GENCONFIGFILE." t
+    if [ ! -f $GENCONFIGFILE ]; then
         log "ERR|ERROR|Package general config file missing" t
-        return
+        return 1
     fi
 
     log "PKG|INFO|Reading config file into variables" t
@@ -681,23 +709,23 @@ function loadPkg {
         case "${PARAM[0]}" in
             tf)
                 log "PKG|INFO|tf: ${PARAM[1]}" t
-                tf=${PARAM[1]}
+                TF=${PARAM[1]}
                 ;;
             sdn)
                 log "PKG|INFO|sdn: ${PARAM[1]}" t
-                sdn=${PARAM[1]}
+                SDN=${PARAM[1]}
                 ;;
             sd)
                 log "PKG|INFO|sd: ${PARAM[1]}" t
-                sd=${PARAM[1]}
+                SD=${PARAM[1]}
                 ;;
             hasBuildDir)
                 log "PKG|INFO|hasBuildDir: ${PARAM[1]}" t
-                hasBuildDir=${PARAM[1]}
+                HASBUILDDIR=${PARAM[1]}
                 ;;
             bypassImplement)
                 log "PKG|INFO|bypassImplement: ${PARAM[1]}" t
-                bypassImplement=${PARAM[1]}
+                BYPASSIMPLEMENT=${PARAM[1]}
                 ;;
             tasks)
                 log "PKG|INFO|Loading tasks list." t
@@ -705,85 +733,89 @@ function loadPkg {
                 x=0
                 while [[ $x < ${#TASK[@]} ]]; do
                     log "PKG|INFO|Adding ${TASK[$x]}." t
-                    autoInstallCmdList+=(${TASK[$x]})
+                    AUTOINSTALLCMDLIST+=(${TASK[$x]})
                     ((x++))
                 done
                 IFS=':'
+                ;;
+            makeflags)
+                log "PKG|INFO|Chaning makeflags" t
+                MAKEFLAGS=${PARAM[1]}
                 ;;
             DEBUG) DEBUG=${PARAM[1]};;
             *) log "{GEN,ERR}|ERROR|Unknow params: ${PARAMS[1]}" t;;
         esac
         unset IFS
-    done < $genConfigFile
+    done < $GENCONFIGFILE
 
 
-    log "GEN|INFO|Check if source package exists: $sd/$tf" t
+    log "GEN|INFO|Check if source package exists: $SD/$tf" t
     # Check if source package exists
     ## What is this
-    if [ ! -f $sd/$tf ]; then
+    if [ ! -f $SD/$TF ]; then
         log "PKG|WARNING|Why are we doing this?" t
-        log "{GEN,ERR}|WARNING|Package $tf not found in source $sd, creating." t
-        processCmd " install -vm664 $devBase/sources/$tf $sd/$tf"
+        log "{GEN,ERR}|WARNING|Package $tf not found in source $SD, creating." t
+        processCmd " install -vm664 $DEVBASE/sources/$TF $SD/$TF"
         return
     fi
 
-    ext="${tf##*.}"
-    log "PKG|INFO|Extension established: $ext" t
+    EXT="${TF##*.}"
+    log "PKG|INFO|Extension established: $EXT" t
     log "PKG|INFO|Calling setCmdFileList." t
     setCmdFileList
-    if [ $hasBuildDir -lt 1 ]; then
-        buildDir=$sd/$sdn/build
-        log "GEN|INFO|Checking if build dir: $buildDir exists." t
-        if [ ! -d "$builDir" ]; then
+    if [ $HASBUILDDIR -lt 1 ]; then
+        BUILDDIR=$SD/$SDN/build
+        log "GEN|INFO|Checking if build dir: $BUILDDIR exists." t
+        if [ ! -d "$BUILDIR" ]; then
             log "GEN|WARNING|Build directory flag set, but dir does not exist, creating..." t
-            processCmd "install -vdm755 $buildDir"
-            [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error creating $buildDir." t && return 1
+            processCmd "install -vdm755 $BUILDDIR"
+            [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error creating $BUILDDIR." t && return 1
         fi
     else
-        buildDir=$sd/$sdn
+        BUILDDIR=$SD/$SDN
     fi
-    log "PKG|INFO|buildDir set: $buildDir." t
+    log "PKG|INFO|buildDir set: $BUILDDIR." t
 
     # Adjusting the unpack commands
-    log "GEN|INFO|Adjusting unpack command." t
-    if [[ "$ext" == "xz" ]]; then
-        unpackCmd="tar xvf $tf"
-    elif [[ "$ext" == "gz" ]]; then
-        unpackCmd="tar xvfz $tf"
-    elif [[ "$ext" == "gzip" ]]; then
-        unpackCmd="tar xvfz $tf"
-    elif [[ "$ext" == "bz2" ]]; then
-        unpackCmd="tar xvfj $tf"
-    elif [[ "$ext" == "tgz" ]]; then
-        unpackCmd="tar xvfz $tf"
+    log "GEN|INFO|Adjusting unpack command for $EXT." t
+    if [[ "$EXT" == "xz" ]]; then
+        UNPACKCMD="tar xvf $TF"
+    elif [[ "$EXT" == "gz" ]]; then
+        UNPACKCMD="tar xvfz $TF"
+    elif [[ "$EXT" == "gzip" ]]; then
+        UNPACKCMD="tar xvfz $TF"
+    elif [[ "$EXT" == "bz2" ]]; then
+        UNPACKCMD="tar xvfj $TF"
+    elif [[ "$EXT" == "tgz" ]]; then
+        UNPACKCMD="tar xvfz $TF"
     else
         log "ERR|FATAL|Unknown package unpack method." true
-        return 1
+        return 0
     fi
-    log "PKG|INFO|unpackCmd set: $unpackCmd." t
+    log "PKG|INFO|unpackCmd set: $UNPACKCMD." t
     return 0
 }
 
 function unloadPkg {
-    unset -v pkg sdnConf tf sdn hasBuildDir buildDir ld ext unpackCmd banner genConfigFile depcheckCmdFile preconfigCmdFile configCmdFile compileCmdFile checkCmdFile preInstallCmdFile installCmdFile preImplementCmdFile postImplementCmdFile cmdFileList preconfigCmd configCmd compileCmd checkCmd preInstallCmd installCmd preImplementCmd postImplementCmd autoInstallCmdList
+    unset -v PKG SDNCONF TF SDN HASBUILDDIR BUILDDIR LD EXT UNPACKCMD BANNER GENCONFIGFILE DEPCHECKCMDFILE PRECONFIGCMDFILE CONFIGCMDFILE COMPILECMDFILE CHECKCMDFILE PREINSTALLCMDFILE INSTALLCMDFILE PREIMPLEMENTCMDFILE POSTIMPLEMENTCMDFILE CMDFILELIST PRECONFIGCMD CONFIGCMD COMPILECMD CHECKCMD PREINSTALLCMD INSTALLCMD PREIMPLEMENTCMD POSTIMPLEMENTCMD AUTOINSTALLCMDLIST
     isImplemented=1
 }
 
 function unpack {
-    log "{GEN,PKG}|INFO|Unpacking source code $tf" t
+    log "{GEN,PKG}|INFO|Unpacking source code $TF" t
 
-    if [ ! -f $sd/$tf ]; then
-        log "{GEN,PKG,ERR}|FATAL|$tf not found." t
+    if [ ! -f $SD/$TF ]; then
+        log "{GEN,PKG,ERR}|FATAL|$TF not found." t
         return 1
     fi
 
-    log "PKG|INFO|Running Cmd: $unpackCmd" t
-    mPush $sd
-    processCmd "${unpackCmd}"
-    [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error unpacking with $unpackCmd" t && return 1
-    if [ $hasBuildDir == 0 ] && [ ! -d $sd/$sdn/build ]; then
+    log "PKG|INFO|Running Cmd: $UNPACKCMD" t t
+    mPush $SD
+    processCmd "${UNPACKCMD}"
+    [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error unpacking with $UNPACKCMD" t && return 1
+    if [ $HASBUILDDIR == 0 ] && [ ! -d $SD/$SDN/build ]; then
         log "PKG|INFO|Creating build directory" t
-        processCmd "install -olfs -glfs -vdm755 $sd/$sdn/build"
+        processCmd "install -olfs -glfs -vdm755 $SD/$SDN/build"
         [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error creating build directory" t && return 1
     fi
 
@@ -795,49 +827,33 @@ function unpack {
 function autoInstall {
     log "GEN|INFO|AutoInstall will be running the following tasks:"
     i=0
-    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
-        echo "${autoInstallCmdList[$i]}"
+    while [[ $i < ${#AUTOINSTALLCMDLIST[@]} ]]; do
+        echo "${AUTOINSTALLCMDLIST[$i]}"
         ((i++))
     done
     promptUser "Do you wanto start now?"
     read y
     case $y in
         [nN])
-            return
+            return 0
             ;;
         [yY]|*)
             runAutoInstall
             [ $? -gt 0 ] && log "{GEN,ERR}|ERROR|Error during autoInstall." t && return 1
             ;;
     esac
+    return 0
 }
 
 function runAutoInstall {
     ii=0
     log "PKG|INFO|Starting auto install." t
-    while [[ $ii < ${#autoInstallCmdList[@]} ]]; do
-        f=${autoInstallCmdList[$ii]}
+    while [[ $ii < ${#AUTOINSTALLCMDLIST[@]} ]]; do
+        f=${AUTOINSTALLCMDLIST[$ii]}
         ((ii++))
         log "GEN|INFO|Sourcing $f." true
         evalPrompt $f
-        res=$?
-        log "GEN|INFO|Came back from evalPrompt with $res" t
-        [ $res -gt 0 ] && log "{PKG,ERR}|ERROR|Error sourcing $f. Aborting!" t && return 1
-        if [ "$f" = "check" ]; then
-            promptUser "Just finished checks, verify it. Do I keep going? Y/n"
-            read t
-            case $t in
-                [Nn])
-                    log "{PKG|ERR}|ERROR|User reported error. Aborting!" t
-                    return 1
-                    ;;
-                [Yy]|*)
-                    ((ii++))
-                    continue
-                    ;;
-            esac
-        fi
-
+        [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error sourcing $f. Aborting!" t && return 1
     done
     log "PKG|INFO|Auto install completed, all seems to be good." t
     return 0
@@ -846,7 +862,7 @@ function runAutoInstall {
 function searchPkg {
     # If we can't file the package (source tar), we do a search for the term provided by the user.
     declare -a foundFiles
-    for file in `find $sd -maxdepth 1 -type f -iname "$1*"`; do
+    for file in `find $SD -maxdepth 1 -type f -iname "$1*"`; do
         promptUser "FoundFiles: $file\n Use it? Y/n"
         read u
         case $u in
@@ -855,18 +871,18 @@ function searchPkg {
                 ;;
             [yY]|*)
                 log "GEN|INFO|Using: $file" t
-                pkg=$(basename $file)
-                log "{GEN,PKG}|INFO|pkg seto $pkg" t
-                if [ ! -f $sd/$pkg ]; then
-                    log "{GEN,ERR}|FATAL|Could not find $pkg after finding it????" t
+                PKG=$(basename $file)
+                log "{GEN,PKG}|INFO|pkg seto $PKG" t
+                if [ ! -f $SD/$PKG ]; then
+                    log "{GEN,ERR}|FATAL|Could not find $PKG after finding it????" t
                     return 1
                 fi
                 break
                 ;;
         esac
     done
-    if [ ! -f $sd/$pkg ]; then
-        log "GEN|WARNING|No package found for $pkg*." t
+    if [ ! -f $SD/$PKG ]; then
+        log "GEN|WARNING|No package found for $PKG*." t
         return 1
     fi
 }
@@ -877,89 +893,56 @@ function processCmd {
         cmd=$cmd" "$part
     done
     log "GEN|INFO|Processing cmd: $cmd"
-    if [[ $DEBUG = 0 ]]; then
-        eval "$cmd >&${genLogFD} 2>&${errLogFD}"
-    elif [[ $DEBUG = 1 ]]; then
-        eval "$cmd > >(tee >(cat - >&${genLogFD})) 2> >(tee >(cat - >&${errLogFD}) >&2)"
+    if [[ $DEBUG < 1 ]]; then
+        eval "$cmd >&${GENLOGFD} 2>&${ERRLOGFD}"
+    elif [[ $DEBUG > 0 ]]; then
+        eval "$cmd > >(tee >(cat - >&${GENLOGFD})) 2> >(tee >(cat - >&${ERRLOGFD}) >&2)"
     fi
     return $?
 }
 
-function listCommands {
-    declare cmd
-    COLOR="\e[32]"
-    promptUser "Which command?"
-    read x
-    case $x in
-        preconfig | all)
-            c="cat $preConfigCmdFile"
-            eval $c | tee -a 2>> $ld/${lf[0]}
-            ;;
-        config | all)
-            i=0
-            ;;
-        compile | all)
-            i=0
-            ;;
-        check | all)
-            i=0
-            ;;
-        preInstall | all)
-            i=0
-            ;;
-        install | all)
-            i=0
-            ;;
-        preImplement | all)
-            i=0
-            ;;
-        postImplement | all)
-            i=0
-            ;;
-
-    esac
-
-
-}
-
 function promptUser {
-COLOR="\e[37m"
-echo -en $COLOR$1" : \e[0m"
+    COLOR="\e[37m"
+    echo -en $COLOR$1" : \e[0m"
 }
 
 function sourceScript {
     c=$1
     log "GEN|INFO|Sourcing: $c" t
     source $c
-    res=$?
-    log "GEN|INFO|Sourced $c returned: $res" t
-    return $res
+    [ $? -gt 0 ] && log "{GEN,ERR}|ERROR|Failed." t && return 1
+    log "GEN|INFO|Success." t
+    return 0
 }
 
 function cleanup {
-    log "GEN|INFO|Cleaning up source file" t
-    processCmd "rm -vfr $sdn"
+    log "GEN|INFO|Cleaning up source file $SD/$SDN" t
+    processCmd "rm -vfr $SD/$SDN"
     [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error cleaning up." t && return 1
     return 0
 }
 
 function quitPkm {
+    ## First log exit message if present
+    if [ -n "$2" ]; then
+        log "GEN|WARNING|Exist Message received: $2"
+    fi
     declare ret=0 ## Default exit value
     if [ $1 ]; then ret=$1; fi ## Override exit value
-    unMountLfs
+
     [ $? -gt 0 ] && echo "ERROR with unMountLfs, CHECK YOUR SYSTEM." && ret=1
 
     log "GEN|INFO|Closing logs." t
-    [ ${genLogFD} ] && exec {genLogFD}>&-
-    [ ${pkgLogFD} ] && exec {pkgLogFD}>&-
-    [ ${errLogFD} ] && exec {errLogFD}>&-
+    [ ${GENLOGFD} ] && exec {GENLOGFD}>&-
+    [ ${PKGLOGFD} ] && exec {PKGLOGFD}>&-
+    [ ${ERRLOGFD} ] && exec {ERRLOGFD}>&-
 
-    unset genLogFile pkgLogFile errLogFile
-    unset genLogFD pkgLogFD errLogFD
+    unset GENLOGFILE PKGLOGFILE ERRLOGFILE
+    unset GENLOGFD PKGLOGFD ERRLOGFD
 
-    if [ -f $devBase/var/run/pkm/pkm.lock ]; then
+    if [ -f $DEVBASE/var/run/pkm/pkm.lock ]; then
         log "GEN|INFO|Removing pkm lock." t
-        sudo rm $devBase/var/run/pkm/pkm.lock
+        sudo rm $DEVBASE/var/run/pkm/pkm.lock
         [ $? -gt 0 ] && echo "Error removing lock." && exit $res
     fi
     if [[ ! "$2" = "" ]]; then
@@ -971,45 +954,44 @@ function quitPkm {
 
 function setCmdFileList {
     log "GEN|INFO|Setting up command files list." true
-    if [[ "$sdn" = "" ]]; then
-        log "{GEN,ERR}|ERROR|sdn is not set." true
+    if [[ "$SDN" = "" ]]; then
+        log "{GEN,ERR}|ERROR|SDN is not set." true
         return 1
     fi
-    if [ "$sdnConf" == "" ]; then
-        log "{GEN,ERR}|ERROR|sdnConf not set." true
+    if [ "$SDNCONF" == "" ]; then
+        log "{GEN,ERR}|ERROR|SDNCONF not set." true
         return 1
     fi
 
-    depcheckCmdFile=$sdnConf/depcheck
-    preconfigCmdFile=$sdnConf/preconfig
-    configCmdFile=$sdnConf/config
-    compileCmdFile=$sdnConf/compile
-    checkCmdFile=$sdnConf/check
-    preInstallCmdFile=$sdnConf/preinstall
-    installCmdFile=$sdnConf/install
-    preImplementCmdFile=$sdnConf/preimplement
-    postImplementCmdFile=$sdnConf/postimplement
-    cmdFileList=(
-        $depcheckCmdFile
-        $preconfigCmdFile
-        $configCmdFile
-        $compileCmdFile
-        $checkCmdFile
-        $preInstallCmdFile
-        $installCmdFile
-        $preImplementCmdFile
-        $postImplementCmdFile
+    DEPCHECKCMDFILE=$SDNCONF/depcheck
+    PRECONFIGCMDFILE=$SDNCONF/preconfig
+    CONFIGCMDFILE=$SDNCONF/config
+    COMPILECMDFILE=$SDNCONF/compile
+    CHECKCMDFILE=$SDNCONF/check
+    PREINSTALLCMDFILE=$SDNCONF/preinstall
+    INSTALLCMDFILE=$SDNCONF/install
+    PREIMPLEMENTCMDFILE=$SDNCONF/preimplement
+    POSTIMPLEMENTCMDFILE=$SDNCONF/postimplement
+    CMDFILELIST=(
+        $DEPCHECKCMDFILE
+        $PRECONFIGCMDFILE
+        $CONFIGCMDFILE
+        $COMPILECMDFILE
+        $CHECKCMDFILE
+        $PREINSTALLCMDFILE
+        $INSTALLCMDFILE
+        $PREIMPLEMENTCMDFILE
+        $POSTIMPLEMENTCMDFILE
     )
     return 0
 }
 
 function listTask {
     i=0
-    while [[ $i < ${#autoInstallCmdList[@]} ]]; do
-        echo -n "${autoInstallCmdList[$i]}, "
+    while [[ $i < ${#AUTOINSTALLCMDLIST[@]} ]]; do
+        echo -n "${AUTOINSTALLCMDLIST[$i]}, "
         ((i++))
     done
-    echo ""
 }
 
 function mPush {
@@ -1023,6 +1005,26 @@ function mPop {
     [ $? -gt 0 ] && quitPkm 1 "Error poping directory of the stack" || return 0
 }
 
+function runAutoBuildTmpToolChain {
+    bsrc=$DEVBASE/etc/autoBuildTmpToolChain/list
+    [ ! -f $bsrc ] && log "{GEN,ERR}|ERROR| autoBuildTempToolChain directory not present et $DEVBASE/etc" t && return 1
+    declare -a pkglist
+    while read -r bline; do
+        pkglist+=($bline)
+    done < $bsrc
+    for item in ${pkglist[@]}; do
+        log "GEN|INFO|Loading $item" t
+        loadPkg $item
+        [ $? -gt 0 ] && log "GEN|ERR|Error load $item" t && return 1
+        runAutoInstall
+        [ $? -gt 0 ] && log "GEN|ERR|Error with autoinstall of $item" t && return 1
+        log "GEN|INFO|Sourcing $item succesful." t
+        unloadPkg
+    done
+    log "GEN|INFO|DONE BUIL TEMP" t
+    return 0
+}
+
 function evalPrompt {
     case $1 in
         listcommands)
@@ -1034,66 +1036,65 @@ function evalPrompt {
             ;;
         depcheck)
             log "GEN|INFO|Running dependency check scripts" t
-            sourceScript "${depcheckCmdFile}"
+            sourceScript "${DEPCHECKCMDFILE}"
             return $?
             ;;
         preconfig)
             log "GEN|INFO|Running pre-config scripts" t
-            if [ $hasBuildDir -lt 1 ]; then
-                mPush $sd/$sdn
+            if [ $HASBUILDDIR -lt 1 ]; then
+                mPush $SD/$SDN
             else
-                mPush $buildDir
+                mPush $BUILDDIR
             fi
-            sourceScript "${preconfigCmdFile}"
+            sourceScript "${PRECONFIGCMDFILE}"
             res=$?
-
             mPop
             return $res
             ;;
         config)
             log "GEN|INFO|Running config scripts" true
-            mPush $buildDir
-            sourceScript "${configCmdFile}"
+            mPush $BUILDDIR
+            sourceScript "${CONFIGCMDFILE}"
             res=$?
             mPop
             return $res
             ;;
         compile)
             log "GEN|INFO|Running compile scripts" true
-            mPush $buildDir
-            sourceScript "${compileCmdFile}"
+            mPush $BUILDDIR
+            sourceScript "${COMPILECMDFILE}"
             res=$?
             mPop
             return $res
             ;;
         check)
             log "GEN|INFO|Running check scripts" true
-            mPush $buildDir
-            sourceScript "${checkCmdFile}"
+            mPush $BUILDDIR
+            sourceScript "${CHECKCMDFILE}"
             res=$?
             mPop
             return $res
             ;;
         preinstall)
             log "GEN|INFO|Running PreInstall scripts" true
-            mPush $buildDir
-            sourceScript "${preInstallCmdFile}"
+            mPush $BUILDDIR
+            sourceScript "${PREINSTALLCMDFILE}"
             res=$?
             mPop
             return $res
             ;;
         install)
             log "GENINFO|Running install scripts" true
-            mPush $buildDir
-            sourceScript "${installCmdFile}"
+            mPush $BUILDDIR
+            sourceScript "${INSTALLCMDFILE}"
             res=$?
             mPop
             return $res
             ;;
         preimplement)
             log "GEN|INFO|Running preImplement scripts" true
-            mPush $buildDir
-            sourceScript "${preImplementCmdFile}"
+            mPush $BUILDDIR
+            sourceScript "${PREIMPLEMENTCMDFILE}"
             res=$?
             mPop
             return $res
@@ -1138,6 +1139,9 @@ function evalPrompt {
         ilsil)
             importLfsScriptedImplementLogs
             ;;
+        autobuild)
+            runAutoBuildTmpToolChain
+            ;;
         *)
             log "GEN|INFO|Unknown command: $1" t
             return 1
@@ -1147,11 +1151,13 @@ function evalPrompt {
 }
 
 function prompt {
-while true; do
-promptUser "Input."
-read -e command
-evalPrompt $command
-done
+    while true; do
+        promptUser "Input."
+        read -e command
+        evalPrompt $command
+        [ $? -gt 0 ] && log "{GEN,ERR}|ERROR|EvalPrompt returned error on $command." t
+        unset command
+    done
 }
 
 ## Checking user parameters
@@ -1160,16 +1166,26 @@ do
     case "$arg" in
         --updatePkgFromLocal)
             updatePkgFromLocal
-            [ $? -gt 0 ] && echo "Error happen, check your installation." && quitPkm 1
+            [ $? -gt 0 ] && quitPkm 1 "Error happen, check your installation."
             quitPkm 0
             ;;
         --updatePkm)
             updatePkm
-            if [[ $? > 0 ]]; then
-                echo "Error happen, check your installation."
-                exit 1
-            fi
-            exit 0
+            [ $? -gt 0 ] && quitPkm 1 "Error happen, check your installation."
+            quitPkm 0
+            ;;
+        --autoBuildTmpToolChain)
+            singleton ## Ensure only one instance runs.
+            [ $? -gt 0 ] && quitPkm 1 "Singleton check failed."
+            log "NULL|INFO|Starting PKM" t
+            readConfig
+            startLog
+            startupCheck
+            runAutoBuildTmpToolChain
+            [ $? -gt 0 ] && quitPkm 1 "AutoBuildTmpToolChain return error."
+            quitPkm 0 "AutoBuildTmpToolChain succesful."
+            ;;
+
     esac
 done
 
@@ -1177,9 +1193,7 @@ done
 
 
 singleton ## Ensure only one instance runs.
-if [[ $? > 0 ]]; then
-    exit 1
-fi
+[ $? -gt 0 ] && quitPkm 1 "Singleton check failed."
 log "NULL|INFO|Starting PKM" t
 readConfig
 startLog
