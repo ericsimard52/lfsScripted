@@ -1,0 +1,14 @@
+log "GEN|INFO|Saving space by stripping debugs and unneeded." t
+sudo strip --strip-debug /tools/lib/*
+[ $? -gt 0 ] && log "GEN|WARNING|Stripping debugs failed." t
+sudo /usr/bin/strip --strip-unneeded /tools/{,s}bin/*
+[ $? -gt 0 ] && log "GEN|WARNING|Stripping unneeded failed." t
+
+log "GEN|INFO|Removing documentation" t
+sudo rm -rf /tools/{,share}/{info,man,doc}
+[ $? -gt 0 ] && log "GEN|WARNING|Error removing documentations." t
+
+log "GEN|INFO|Remove unneeded files." t
+sudo find /tools/{lib,libexec} -name \*.la -delete
+[ $? -gt 0 ] && log "GEN|WARNING|Error removing uneeded files." t
+return 0

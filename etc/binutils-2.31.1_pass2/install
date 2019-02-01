@@ -1,21 +1,21 @@
-    processCmd "make install"
-    if [[ $? > 0 ]]; then
-        log "PKG|ERROR|Error installing." t
-        return 1
-    fi
-    processCmd "make -C ld clean"
-    if [[ $? > 0 ]]; then
-        log "PKG|ERROR|Error with make -C ld clean." t
-        return 1
-    fi
-    processCmd "make -C ld LIB_PATH=/usr/lib:/lib"
-    if [[ $? > 0 ]]; then
-        log "PKG|ERROR|Error with make -C ld LIB_PATH=/usr/lib:/lib." t
-        return 1
-    fi
-    processCmd "cp -v ld/ld-new /tools/bin"
-    if [[ $? > 0 ]]; then
-        log "PKG|ERROR|Error with cp -v ld/ld-new /tool/bin." t
-        return 1
-    fi
-    return 0
+processCmd "make install"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error installing." t
+    return 1
+fi
+processCmd "make -C ld clean"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with make -C ld clean." t
+    return 1
+fi
+processCmd "make -C ld LIB_PATH=/usr/lib:/lib"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with make -C ld LIB_PATH=/usr/lib:/lib." t
+    return 1
+fi
+processCmd "cp -v ld/ld-new /tools/bin"
+if [[ $? > 0 ]]; then
+    log "PKG|ERROR|Error with cp -v ld/ld-new /tool/bin." t
+    return 1
+fi
+return 0

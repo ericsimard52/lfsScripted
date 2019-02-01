@@ -1,13 +1,9 @@
 echo 'int main(){}' > dummy.c
 cc dummy.c
-readelf -l a.out | grep ': /tools'
-promptUser "Looks good? [Yn]"
-read c
-case $c in
-    [nN])
-        log "PKG|ERROR|User reported error." t
-        processCmd "rm -v dummy.c a.out"
-        return 1
-esac
+x=`readelf -l a.out | grep ': /tools' | wc -l`
+if [ $x = 0 ]; then
+    log "GEN|ERROR|Error checking gcc. "`readelf -l a.out | grep ': /tools'`
+    return 1
+fi
 processCmd "rm -v dummy.c a.out"
 return 0

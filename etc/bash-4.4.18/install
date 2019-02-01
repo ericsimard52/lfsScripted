@@ -3,4 +3,5 @@ processCmd "make install"
 
 log "PKG|INFO|Linking."
 processCmd "ln -sv bash /tools/bin/sh"
-[ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error with linking. Aborting!" t && return 1 || return 0
+[ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error with linking. Aborting!" t && return 1
+return 0

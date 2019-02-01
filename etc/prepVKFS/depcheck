@@ -1,0 +1,59 @@
+declare -a dl_=($LFS/dev $LFS/proc $LFS/sys $LFS/run)
+
+for d_ in ${dl_[@]}; do
+    log "GEN|INFO|Creating directory $d_." t
+    sudo mkdir -pv $d_
+    [ $? -gt 0 ] && log "GEN|WARNING|Error creating directory $d_."
+done
+
+if [ ! -c $LFS/dev/console ]; then
+    log "GEN|INFO|Creating initial Device Nodes console" t
+    sudo mknod -m 600 $LFS/dev/console c 5 1
+    [ $? -gt 0 ] && log "GEN|WARNING|Error creating console" t
+fi
+
+if [ ! -c $LFS/dev/null ]; then
+    log "GEN|INFO|Creating null device." t
+    sudo mknod -m 666 $LFS/dev/null c 1 3
+    [ $? -gt 0 ] && log "GEN|WARNING|Error creating null" t
+fi
+
+
+processCmd "findmnt $LFS/dev"
+if [ $? -gt 0 ]; then
+    log "GEN|INFO|Binding host /dev to lfs /dev" t
+    sudo mount -v --bind /dev $LFS/dev
+    [ $? -gt 0 ] && log "GEN|WARNING|Unable to bind dev between host and lfs" t && return 1
+fi
+
+
+
+processCmd "findmnt $LFS/dev/pts"
+if [ $? -gt 0 ]; then
+    log "GEN|INFO|Mounting $LFS/dev/pts" t
+    sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620
+    [ $? -gt 0 ] && log "GEN|WARNING|Error mount devpts" t && return 1
+fi
+processCmd "findmnt $LFS/proc"
+if [ $? -gt 0 ]; then
+    log "GEN|INFO|Mounting $LFS/proc" t
+    sudo mount -vt proc proc $LFS/proc
+    [ $? -gt 0 ] && log "GEN|WARNING|Error mount proc" t && return 1
+fi
+
+processCmd "findmnt $LFS/sys"
+if [ $? -gt 0 ]; then
+    sudo mount -vt sysfs sysfs $LFS/sys
+    [ $? -gt 0 ] && log "GEN|WARNING|Error mount sys" t && return 1
+fi
+
+processCmd "findmnt $LFS/run"
+if [ $? -gt 0 ]; then
+    sudo mount -vt tmpfs tmpfs $LFS/run
+    [ $? -gt 0 ] && log "GEN|WARNING|Error mount run" t && return 1
+fi
+
+if [ -h $LFS/dev/shm ]; then
+    sudo mkdir -pv $LFS/$(readlink $LFS/dev/shm)
+fi
+return 0
