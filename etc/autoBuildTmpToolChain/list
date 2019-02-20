@@ -30,7 +30,10 @@ tar-1.30
 texinfo-6.5
 util-linux-2.32.1
 xz-5.2.4
+backup
 stripping
 changeOwner
 prepVKFS
 installPkm
+
+

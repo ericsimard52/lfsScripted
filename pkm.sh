@@ -307,7 +307,7 @@ function checkSources {
         fi
     done
     # Touch dummy pkg
-    declare -a _dummyPkgList=('versionCheck.tar.xz' 'stripping.tar.xz' 'changeOwner.tar.xz' 'installPkm')
+    declare -a _dummyPkgList=('dummy.tar.xz')
     declare _dp
     for _dp in ${dummyPkgList[@]}; do
         if [ ! -e $SD/$_dp ]; then

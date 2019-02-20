@@ -1,0 +1,5 @@
+log "GEN|INFO|Backing up temporary toolchain." t
+bakDest=/root/lfs_ttc.tar.gz
+sudo tar -cvpzf $bakDest --exclude=$bakDest --one-file-system $LFS
+[ $? -gt 0 ] && log "GEN|ERROR|Error backing up." t && return 1
+return 0
