@@ -1,7 +1,11 @@
 mPush gettext-tools
-EMACS="no" ./configure --prefix=/tools --disable-shared
+if [ $DEBUG -eq 0 ]; then
+    EMACS="no" ./configure --prefix=/tools --disable-shared > >( tee >&${SECONDARYLOGFD} ) 2> >( tee >&${SECONDARYLOGFD} 2>&1 )
+else
+    EMACS="no" ./configure --prefix=/tools --disable-shared >&${SECONDARYLOGFD} 2>&1
+fi
 
-[ $? -gt 0 ] && log "PKG|ERROR|Error with configure." t && mPop && return 1
+[ $? -gt 0 ] && mPop && return 1
 
 mPop
 return 0

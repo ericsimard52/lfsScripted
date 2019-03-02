@@ -1,18 +1,19 @@
 mPush unix
 processCmd "make install"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with install." t && mPop && return 1
+[ $? -gt 0 ] && mPop && return 1
 
 log "PKG|INFO|Making libraries writable." t
 processCmd "chmod -v u+w /tools/lib/libtcl8.6.so"
-[ $? -gt 0 ] && log "PKG|ERROR|Error making libraries writable." t && mPop && return 1
+[ $? -gt 0 ] && mPop && return 1
 
 log "PKG|INFO|Installing tcl's headers." t
 processCmd "make install-private-headers"
-[ $? -gt 0 ] && log "PKG|ERROR|Error installing." t && mPop && return 1
+[ $? -gt 0 ] && mPop && return 1
 
 log "PKG|INFO|Creating needed links." t
+[ -L /tools/bin/tclsh ] && processCmd "rm -v /tools/bin/tclsh"
 processCmd "ln -sv tclsh8.6 /tools/bin/tclsh"
-[ $? -gt 0 ] && log "PKG|ERROR|Error linking." t && mPop && return 1
+
 
 mPop
 return 0

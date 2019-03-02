@@ -1,3 +1,3 @@
-sh Configure -des -Dprefix=/tools -Dlibs=-lm -Uloclibpth -Ulocincpth
-[ $? -gt 0 ] && log "PKG|ERROR|Error with configure." t && return 1
+processCmd "sh Configure -des -Dprefix=/tools -Dlibs=-lm -Uloclibpth -Ulocincpth"
+[ $? -gt 0 ] && return 1
 return 0

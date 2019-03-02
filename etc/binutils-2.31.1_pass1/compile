@@ -1,8 +1,12 @@
-
 processCmd "make"
-[ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error processing make. Aborting!" t && return 1
+[ $? -gt 0 ] && return 1
 
 case $(uname -m) in
-    x86_64) mkdir -v /tools/lib && ln -sv lib /tools/lib64 ;;
+    x86_64)
+        [ ! -d /tools/lib ] && processCmd "mkdir -v /tools/lib"
+        [ ! -L /tools/lib64 ] && processCmd "ln -sv lib /tools/lib64"
+        ;;
 esac
+[ ! -d /tools/lib ] && log "NULL|ERROR|/tools/lib was not created." t && return 1
+[ ! -L /tools/lib64 ] && log "NULL|ERROR|lib64 symlink was not created." t && return 1
 return 0

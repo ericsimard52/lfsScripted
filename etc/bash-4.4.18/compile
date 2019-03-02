@@ -1,2 +1,3 @@
 processCmd "make"
-[ $? -gt 0 ] log "{PKG,ERR}|ERROR|Error with make." t && return 1 || return 0
+[ $? -gt 0 ] && return 1
+return 0

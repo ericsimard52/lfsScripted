@@ -1,2 +1,3 @@
 processCmd "../configure --prefix=/tools --with-sysroot=$LFS --with-lib-path=/tools/lib --target=$LFS_TGT --disable-nls --disable-werror"
-[ $? -gt 0 ] && log "PKG|ERROR|Error in config." && return 1 || return 0
+[ $? -gt 0 ] && return 1
+return 0

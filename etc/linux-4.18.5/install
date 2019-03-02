@@ -1,6 +1,6 @@
 processCmd "make INSTALL_HDR_PATH=dest headers_install"
-[ $? -gt 0 ] && log "PKG|ERROR|Error in make install" t && return 1
+[ $? -gt 0 ] && return 1
 
 processCmd "cp -rv dest/include/* /tools/include"
-[ $? -gt 0 ] && log "PKG|ERROR|Error in cp" t && return 1
+[ $? -gt 0 ] && return 1
 return 0

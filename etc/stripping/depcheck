@@ -1,14 +1,15 @@
 log "GEN|INFO|Saving space by stripping debugs and unneeded." t
-sudo strip --strip-debug /tools/lib/*
-[ $? -gt 0 ] && log "GEN|WARNING|Stripping debugs failed." t
-sudo /usr/bin/strip --strip-unneeded /tools/{,s}bin/*
-[ $? -gt 0 ] && log "GEN|WARNING|Stripping unneeded failed." t
+sudo strip --strip-debug /tools/lib/* > >(tee >&${SECONDARYLOGFD}) 2> >( tee >&${SECONDARYLOGFD} 2>&1)
+[ $? -gt 0 ] && log "GEN|WARNING|Stripping debugs failed. This is expected, but check log if you want." t
+
+sudo /usr/bin/strip --strip-unneeded /tools/{,s}bin/*  > >(tee >&${SECONDARYLOGFD}) 2> >( tee >&${SECONDARYLOGFD} 2>&1)
+[ $? -gt 0 ] && log "GEN|WARNING|Stripping unneeded failed.  This is expected, but check log if you want." t
 
 log "GEN|INFO|Removing documentation" t
-sudo rm -rf /tools/{,share}/{info,man,doc}
-[ $? -gt 0 ] && log "GEN|WARNING|Error removing documentations." t
+sudo rm -rf /tools/{,share}/{info,man,doc}  > >(tee >&${SECONDARYLOGFD}) 2> >( tee >&${SECONDARYLOGFD} 2>&1)
+[ $? -gt 0 ] && log "GEN|WARNING|Error removing documentations. This is expected, but check log if you want." t
 
 log "GEN|INFO|Remove unneeded files." t
-sudo find /tools/{lib,libexec} -name \*.la -delete
-[ $? -gt 0 ] && log "GEN|WARNING|Error removing uneeded files." t
+sudo find /tools/{lib,libexec} -name \*.la -delete  > >(tee >&${SECONDARYLOGFD}) 2> >( tee >&${SECONDARYLOGFD} 2>&1)
+[ $? -gt 0 ] && log "GEN|WARNING|Error removing uneeded files. This is expected, but check log if you want." t
 return 0

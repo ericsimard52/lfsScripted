@@ -1,8 +1,16 @@
+if [ $DEBUG -eq 1 ]; then
   CC=$LFS_TGT-gcc         \
   CXX=$LFS_TGT-g++        \
   AR=$LFS_TGT-ar          \
   RANLIB=$LFS_TGT-ranlib  \
-  ../configure --prefix=/tools --with-local-prefix=/tools --with-native-system-header-dir=/tools/include --enable-languages=c,c++ --disable-libstdcxx-pch --disable-multilib --disable-bootstrap --disable-libgomp
+  ../configure --prefix=/tools --with-local-prefix=/tools --with-native-system-header-dir=/tools/include --enable-languages=c,c++ --disable-libstdcxx-pch --disable-multilib --disable-bootstrap --disable-libgomp >&${SECONDARYLOGFD} 2>&1
+else
+  CC=$LFS_TGT-gcc         \
+  CXX=$LFS_TGT-g++        \
+  AR=$LFS_TGT-ar          \
+  RANLIB=$LFS_TGT-ranlib  \
+  ../configure --prefix=/tools --with-local-prefix=/tools --with-native-system-header-dir=/tools/include --enable-languages=c,c++ --disable-libstdcxx-pch --disable-multilib --disable-bootstrap --disable-libgomp > >( tee >&${SECONDARYLOGFD} ) 2> >( tee >&${SECONDARYLOGFD} 2>&1 )
+fi
 
-[ $? -gt 0 ] && log "PKG|ERROR|Error configure pass 2" t && return 1
+[ $? -gt 0 ] && return 1
 return 0

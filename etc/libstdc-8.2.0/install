@@ -1,5 +1,5 @@
 processCmd "make install"
-[ $? -gt 0 ] && log "PKG|ERROR|Error installing." t && return 1
+[ $? -gt 0 ] && return 1
 return 0
 
 

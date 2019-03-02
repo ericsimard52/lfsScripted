@@ -1,11 +1,11 @@
 log "PKG|INFO|Apply some fixes." t
 sed -i 's/IO_ftrylockfile/IO_EOF_SEEN/' lib/*.c
-[ $? -gt 0 ] && log "PKG|ERROR|Error with sed." t && return 1
+[ $? -gt 0 ] && return 1
 
 echo "#define _IO_IN_BACKUP 0x100" >> lib/stdio-impl.h
-[ $? -gt 0 ] && log "PKG|ERROR|Error with echo." t && return 1
+[ $? -gt 0 ] && return 1
 
 processCmd "./configure --prefix=/tools"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with configure." t && return 1
+[ $? -gt 0 ] && return 1
 
 return 0

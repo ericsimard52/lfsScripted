@@ -1,14 +1,18 @@
 #!/bin/bash
 
-declare DEVBASE="$HOME/Git/lfsScripted"
+declare DEVBASE=`pwd`
 declare CONFIGFILE="$DEVBASE/etc/pkm.conf"
+declare LOGPATH="/var/log/pkm"
 declare SD SDN SDNCONF PKG EXT HASBUILDDIR BUILDDIR CONFBASE WGETURL LFS LFSUSERHOME
 declare -a PARTITIONDEV PARTITIONNAME PARTITIONMOUNT PARTITIONFS
 declare UNPACKCMD
 declare MAKEFLAGS
-declare DEBUG=0 # 0=OFF, 1= ON, debug is always sent to log file, turn on make is print to stdOut
-declare GENLOGFILE PKGLOGFILE ERRLOGFILE
-declare GENLOGFD PKGLOGFD ERRLOGFD #File descriptor input only
+declare DEBUG=0
+## Location and file descriptor of main log destination.
+declare LOGFILE LOGFD
+declare SLP="/var/log/pkm"
+declare SECONDARYLOGPATH SECONDARYLOGFILE SECONDARYLOGFD 
+declare SECONDARYLOGACTIVE=1
 
 # Config files
 declare GENCONFIGFILE DEPCHECKCMDFILE PRECONFIGCMDFILE CONFIGCMDFILE COMPILECMDFILE CHECKCMDFILE
@@ -16,11 +20,12 @@ declare PREINSTALLCMDFILE INSTALLCMDFILE
 declare -a CMDFILELIST AUTOINSTALLCMDLIST
 
 function singleton {
-    if [ -f $DEVBASE/var/run/pkm/pkm.lock ]; then
-        echo "Pkm is already running or has not quit properly, in that case, remove $DEVBASE/var/run/pkm/pkm.lock" t
+    [ ! -d /var/run/pkm ] && sudo install -vdm 777 /var/run/pkm
+    if [ -f /var/run/pkm/pkm.lock ]; then
+        echo "Pkm is already running or has not quit properly, in that case, remove /var/run/pkm/pkm.lock" t
         return 1
     fi
-    touch $DEVBASE/var/run/pkm/pkm.lock
+    touch /var/run/pkm/pkm.lock
     [ $? -gt 0 ] && echo "Unable to create lock file. Ensure only 1 instance is running."
 
     # If we are lfs user, we assume installation is done and proceed as normal.
@@ -47,8 +52,6 @@ function singleton {
     processCmd "sudo cp -fr $DEVBASE $LFSUSERHOME"
     [ $? -gt 0 ] && quitPkm 1 "Error copy $DEVBASE -> $LFSUSERHOME"
 
-    sudo sed -i -e 's:Git/::g' $LFSUSERHOME/lfsScripted/pkm.sh
-    sudo sed -i -e 's:tech:lfs:g' $LFSUSERHOME/lfsScripted/etc/pkm.conf
     checkPerm $LFSUSERHOME/lfsScripted
     [ $? -gt 0 ] && quitPkm 1 "Error in checkPerm $LFSUSERHOME/lfsScripted"
     echo "Su to lfs user, check pkm.conf and variable DEVBASE in pkm.sh"
@@ -93,26 +96,14 @@ function updatePkm {
 }
 
 function startLog {
-    if [ ! -f $GENLOGFILE ]; then
-        log "NULL|INFO|Creating $GENLOGFILE" t
-        touch $GENLOGFILE
-        chmod 666 -v $GENLOGFILE
-    fi
-    if [ ! -f $PKGLOGFILE ]; then
-        log "NULL|INFO|Creating $PKGLOGFILE" t
-        touch $PKGLOGFILE
-        chmod 666 -v $PKGLOGFILE
-    fi
-    if [ ! -f $ERRLOGFILE ]; then
-        log "NULL|INFO|Creating $ERRLOGFILE" t
-        touch $ERRLOGFILE
-        chmod 666 -v $ERRLOGFILE
+    [ ! -d $LOGPATH ] && sudo install -vdm 777 $LOGPATH
+    if [ ! -f $LOGPATH/$LOGFILE ]; then
+        log "NULL|INFO|Creating $LOGFILE" t
+        touch $LOGPATH/$LOGFILE
+        chmod 666 -v $LOGPATH/$LOGFILE
     fi
     log "NULL|INFO|Creating file descriptor for logs" t
-    exec {GENLOGFD}>$GENLOGFILE
-    exec {PKGLOGFD}>$PKGLOGFILE
-    exec {ERRLOGFD}>$ERRLOGFILE
-
+    exec {LOGFD}>$LOGPATH/$LOGFILE
 }
 
 ###
@@ -129,9 +120,7 @@ function readConfig {
         case "${PARAM[0]}" in
             debug)
                 DEBUG=${PARAM[1]}
-                if [[ $DEBUG > 0 ]];then
-                    log "NULL|INFO|Set param DEBUG:$DEBUG" t
-                fi
+                log "NULL|INFO|Set param DEBUG:$DEBUG" t
                 ;;
             sd)
                 SD=${PARAM[1]}
@@ -149,17 +138,9 @@ function readConfig {
                 BYPASSIMPLEMENT=${PARAM[1]}
                 log "NULL|INFO|Set param bypassImplement:$bypassImplement" t
                 ;;
-            genLog)
-                GENLOGFILE=${PARAM[1]}
-                log "NULL|INFO|Set param genLogFile:$GENLOGFILE" t
-                ;;
-            pkgLog)
-                PKGLOGFILE=${PARAM[1]}
-                log "NULL|INFO|Set param pkgLogFile:$PKGLOGFILE" t
-                ;;
-            errLog)
-                ERRLOGFILE=${PARAM[1]}
-                log "NULL|INFO|Set param errLogFile:$ERRLOGFILE" t
+            logFile)
+                LOGFILE=${PARAM[1]}
+                log "NULL|INFO|Set param genLogFile:$LOGFILE" t
                 ;;
             partitionDev)
                 PARTITIONDEV=(${PARAM[1]})
@@ -289,6 +270,21 @@ function checkSources {
         processCmd "sudo wget -v -O $CONFBASE/wget.list -v \"http://www.linuxfromscratch.org/lfs/view/stable/wget-list\""
         [ $? -gt 0 ] && quitPkm 1 "Unable to fetch wget.list. I will crash if I don't quit now"
     fi
+    log "GEN|INFO|Checking source packages." t
+    for line in `cat $CONFBASE/wget.list`; do
+        fn=$(basename $line)
+        log "GEN|INFO|Checking for $fn" t
+        if [ ! -f $SD/$fn ]; then
+            log "GEN|INFO|$fn not found, fetching." t
+            processCmd "sudo wget -v $line -O $SD/$fn"
+            if [ $? -gt 0 ]; then
+                log "GEN|ERROR|Unable to fetch $fn." t
+                [ -e $SD/$fn ] && processCmd "rm -v $SD/$fn"
+            fi
+
+        fi
+    done
+
     log "GEN|INFO|Do we have md5sums?" t
     if [ ! -f $CONFBASE/md5sums ]; then
         log "GEN|WARNING|md5sums not found, fetching." t
@@ -296,20 +292,10 @@ function checkSources {
         [ $? -gt 0 ] && log "GEN|WARNING|Unable to fetch md5sums check list. Unsure how the program will behave at check time." t
     fi
 
-    log "GEN|INFO|Checking source packages." t
-    for line in `cat $CONFBASE/wget.list`; do
-        fn=$(basename $line)
-        log "GEN|INFO|Checking for $fn"
-        if [ ! -f $SD/$fn ]; then
-            log "GEN|INFO|$fn not found, fetching." t
-            processCmd "sudo wget -v $line -O $SD/$fn"
-            [ $? -gt 0 ] && log "GEN|ERROR|Unable to fetch $fn." t
-        fi
-    done
     # Touch dummy pkg
     declare -a _dummyPkgList=('dummy.tar.xz')
     declare _dp
-    for _dp in ${dummyPkgList[@]}; do
+    for _dp in ${_dummyPkgList[@]}; do
         if [ ! -e $SD/$_dp ]; then
             log "GEN|INFO|Creating dummy package $_dp" t
             processCmd "sudo touch $SD/$_dp"
@@ -341,7 +327,7 @@ function checkLfsUser {
         [ $? -gt 0 ] && quitPkm 1 "Unable to add lfs user."
 
         log "GEN|INFO|Set password for lfs user." t
-        processCmd "sudo passwd lfs"
+        sudo passwd lfs
         [ $? -gt 0 ] && quitPkm 1 "Error setting lfs password"
     fi
     return 0
@@ -547,57 +533,33 @@ printf "\e[1mEnvironment Var:\e[0m
 \e[34mimpLog: \e[32m$IMPLOGFILE
 \e[34mimpLogFD: \e[32m$IMPLOGFD
 \e[34merrLog: \e[32m$ERRLOGFILE
-\e[34merrLogFD: \e[32m$ERRLOGFD\e[0m\n"
+\e[34merrLogFD: \e[32m$ERRLOGFD
+\e[34mNEXTPKG: \e[32m$NEXTPKG
+\e[0m\n"
 }
 
-###
-# Params "FDs|LEVEL|MESSAGE" PRINTtoSTDOUT
-# FDs define 1 or more file descriptor to send the message to. Possible option: GEN,PKGERR
-#
-# GEN for general log, this log is active when debug is off. Contains general message about progress and results
-# PKG Used to log details when debug is on. contains logs from fetching packages  up to installation.
-# ERR Used when debug is on to store details abouthe error
-# NOTE: More the 1 FD per call can be provided: log "{GEN,ERR}|...."
-# PRINTtoSTDOUT when set, also printhe message to stdout
-###
 function log {
-    if [ $3 ] && [[ $DEBUG = 0 ]]; then
+    ## Format
+    ## log "LEVEL|..." PRINTOSTDOUT DEBUGONLYMESSAGE
+    ## log "INFO|..." t = print to stdout
+    ## log "INFO|..." t t = print to stdout only if debug=1
+    ## log "INFO|..." - t = process only if debug=1 and send only to LOGFILE
+    ## Messages are always sent to LOGFILE
+
+    if [ $3 ] && [[ $DEBUG = 0 ]]; then # if 3 param set, we process msg only if debug is 1
         return
     fi
     declare _LEVEL _COLOR _MSG _M _LOGMSG _CALLER _CALLERLOG
-    declare -a _FDs # Array of file descriptor where messages needs to be redirected to.
-    MSGEND="\e[0m" ## Clear all formatting
+
+    MSGEND=" \e[0m" ## Clear all formatting
 
     ## Setting up file descriptor destination
     IFS='|' read -ra PARTS <<< $1
-    case "${PARTS[0]}" in
-        \{*)
-            IFS=',' read -ra DEST <<< ${PARTS[0]}
-            i=0
-            while [[ $i < ${#DEST[@]} ]]; do
-                t="${DEST[$i]}"
-                t="${t/\}}"
-                t="${t/\{}"
-                case "$t" in
-                    GEN) _FDs+=($GENLOGFD);;
-                    PKG) _FDs+=($PKGLOGFD);;
-                    ERR) _FDs+=($ERRLOGFD);;
-                esac
-                ((i++))
-            done
-            IFS='|'
-            ;;
-        GEN) _FDs+=($GENLOGFD);;
-        PKG) _FDs+=($PKGLOGFD);;
-        ERR) _FDs+=($ERRLOGFD);;
-        NULL|*) _FDs+=();;
-    esac
-
     ### Set color formatting
     case "${PARTS[1]}" in
         INFO)
             _LEVEL=INFO
-            _COLOR="\e[35m"
+            _COLOR="\e[39m"
             ;;
         WARNING)
             _LEVEL=WARNING
@@ -616,7 +578,7 @@ function log {
     ### Append message provided by caller
     _M="${PARTS[2]}"
     if [[ "$_M" = "" ]]; then
-        log "NULL|ERROR|Empty log message?!?!" t
+        return
     fi
 
     if [ $SDN ]; then
@@ -627,27 +589,18 @@ function log {
         _CALLER="\e[32mNONE\e[0m "
     fi
     _MSG=$_COLOR$_LEVEL" - "$_CALLER":"$_COLOR$_M$_MSGEND ## Full message string
-    _LOGMSG=$_LEVEL" - "$_CALLERLOG":"$_M
-    ### If $debug is set
-    if [[ $DEBUG > 0 ]]; then
-        if [[ ! $_FDs ]]; then
-            ## There is no file descriptor setup, printo stdOut and bail
-            echo -e "NO_DESTINATION -- "$_MSG
-            unset IFS _FDs _LEVEL _COLOR _MSG _M _MSGEND _LOGMSG _CALLER _CALLERLOG
-            return
-        fi
-        i=0
-        displayOnce=0
-        while [[ $i < ${#_FDs[@]} ]]; do
-            echo $_LOGMSG >&${_FDs[$i]}
-            ((i++))
-        done
-    fi
+    _LOGMSG=$_LEVEL" - "$_CALLERLOG":"$_M$_MSGEND
 
     # Printo stdOut
-    if [[ $2 ]] && [[ "$2" = "t" ]]; then
+    if [ $SECONDARYLOGACTIVE -eq 0 ]; then
+        [ ${SECONDARYLOGFD} ] && echo $_LOGMSG >&${SECONDARYLOGFD}
+    else
+        [ ${LOGFD} ] && echo $_LOGMSG >&${LOGFD}
+    fi
+    if [[ $2 ]] && [[ "$2" = "t" ]]; then # if t after message, print to stdout
         echo -e $_MSG
     fi
+
 
     unset IFS _FDs _LEVEL _COLOR _MSG _M _MSGEND _LOGMSG _CALLER _CALLERLOG
     return
@@ -742,7 +695,8 @@ function loadPkg {
                 log "PKG|INFO|Chaning makeflags" t
                 MAKEFLAGS=${PARAM[1]}
                 ;;
-            DEBUG) DEBUG=${PARAM[1]};;
+            debug) DEBUG=${PARAM[1]};;
+            nextPkg) NEXTPKG=${PARAM[1]};;
             *) log "{GEN,ERR}|ERROR|Unknow params: ${PARAMS[1]}" t;;
         esac
         unset IFS
@@ -776,6 +730,9 @@ function loadPkg {
     fi
     log "PKG|INFO|buildDir set: $BUILDDIR." t
 
+    # Secondary log setup
+    SECONDARYLOGPATH=$SLP/$SDN
+    [ ! -d $SECONDARYLOGPATH ] && processCmd "install -vdm 777 $SECONDARYLOGPATH"
     # Adjusting the unpack commands
     log "GEN|INFO|Adjusting unpack command for $EXT." t
     if [[ "$EXT" == "xz" ]]; then
@@ -797,8 +754,11 @@ function loadPkg {
 }
 
 function unloadPkg {
-    unset -v PKG SDNCONF TF SDN HASBUILDDIR BUILDDIR LD EXT UNPACKCMD BANNER GENCONFIGFILE DEPCHECKCMDFILE PRECONFIGCMDFILE CONFIGCMDFILE COMPILECMDFILE CHECKCMDFILE PREINSTALLCMDFILE INSTALLCMDFILE PREIMPLEMENTCMDFILE POSTIMPLEMENTCMDFILE CMDFILELIST PRECONFIGCMD CONFIGCMD COMPILECMD CHECKCMD PREINSTALLCMD INSTALLCMD PREIMPLEMENTCMD POSTIMPLEMENTCMD AUTOINSTALLCMDLIST
+    unset -v PKG SDNCONF TF SDN HASBUILDDIR BUILDDIR LD EXT UNPACKCMD BANNER GENCONFIGFILE DEPCHECKCMDFILE PRECONFIGCMDFILE CONFIGCMDFILE COMPILECMDFILE CHECKCMDFILE PREINSTALLCMDFILE INSTALLCMDFILE PREIMPLEMENTCMDFILE POSTIMPLEMENTCMDFILE CMDFILELIST PRECONFIGCMD CONFIGCMD COMPILECMD CHECKCMD PREINSTALLCMD INSTALLCMD PREIMPLEMENTCMD POSTIMPLEMENTCMD AUTOINSTALLCMDLIST NEXTPKG
+    SECONDARYLOGPATH=$SLP
+    SECONDARYLOGACTIVE=1
     isImplemented=1
+
 }
 
 function unpack {
@@ -888,17 +848,15 @@ function searchPkg {
 }
 
 function processCmd {
-    local cmd=""
-    for part in $@; do
-        cmd=$cmd" "$part
-    done
-    log "GEN|INFO|Processing cmd: $cmd"
-    if [[ $DEBUG < 1 ]]; then
-        eval "$cmd >&${GENLOGFD} 2>&${ERRLOGFD}"
-    elif [[ $DEBUG > 0 ]]; then
-        eval "$cmd > >(tee >(cat - >&${GENLOGFD})) 2> >(tee >(cat - >&${ERRLOGFD}) >&2)"
+    eval "tput sgr0"
+    log "GEN|INFO|Processing cmd: ${@}"
+    if [[ $DEBUG = 0 ]]; then
+        [ $SECONDARYLOGACTIVE -eq 0 ] && $@ >&${SECONDARYLOGFD} 2>&1 || $@ >&${LOGFD} 2>&1
+    elif [[ $DEBUG = 1 ]]; then
+        [ $SECONDARYLOGACTIVE -eq 0 ] && $@ | tee >&${SECONDARYLOGFD} 2>&1 || $@ | tee >&${LOGFD} 2>&1
     fi
-    return $?
+    [ $? -gt 0 ] && log "GEN|ERROR|Error processing cmd: $@" t && return 1
+    return 0
 }
 
 function promptUser {
@@ -933,16 +891,17 @@ function quitPkm {
     [ $? -gt 0 ] && echo "ERROR with unMountLfs, CHECK YOUR SYSTEM." && ret=1
 
     log "GEN|INFO|Closing logs." t
-    [ ${GENLOGFD} ] && exec {GENLOGFD}>&-
-    [ ${PKGLOGFD} ] && exec {PKGLOGFD}>&-
-    [ ${ERRLOGFD} ] && exec {ERRLOGFD}>&-
+    [ ${LOGFD} ] && exec {LOGFD}>&-
 
-    unset GENLOGFILE PKGLOGFILE ERRLOGFILE
-    unset GENLOGFD PKGLOGFD ERRLOGFD
+    unset LOGFILE
+    unset LOGFD
 
-    if [ -f $DEVBASE/var/run/pkm/pkm.lock ]; then
+    if [ $SECONDARYLOGACTIVE -eq 0 ]; then
+       closeSecondaryLog
+    fi
+    if [ -f /var/run/pkm/pkm.lock ]; then
         log "GEN|INFO|Removing pkm lock." t
-        sudo rm $DEVBASE/var/run/pkm/pkm.lock
+        sudo rm /var/run/pkm/pkm.lock
         [ $? -gt 0 ] && echo "Error removing lock." && exit $res
     fi
     if [[ ! "$2" = "" ]]; then
@@ -988,10 +947,14 @@ function setCmdFileList {
 
 function listTask {
     i=0
+    last=${#AUTOINSTALLCMDLIST[@]}
+    ((last--))
+
     while [[ $i < ${#AUTOINSTALLCMDLIST[@]} ]]; do
-        echo -n "${AUTOINSTALLCMDLIST[$i]}, "
+        [ $i -eq $last ] && echo -n "${AUTOINSTALLCMDLIST[$i]}" || echo -n "${AUTOINSTALLCMDLIST[$i]}, "
         ((i++))
     done
+    echo ""
 }
 
 function mPush {
@@ -1025,21 +988,64 @@ function runAutoBuildTmpToolChain {
     return 0
 }
 
+function setupSecondaryLog {
+    log "NULL|INFO|Setting up secondary log." t
+    if [ ! $1 ]; then
+       log "NULL|WARNING|Call to set secndary log, no parameters provided." t
+       return 1
+    fi
+    SECONDARYLOGFILE=$1
+    if [ ! -e $SECONDARYLOGPATH/$SECONDARYLOGFILE ]; then
+       log "NULL|INFO|$SECONDARYLOGFILE does not exists. Creating." t
+       processCmd "touch $SECONDARYLOGPATH/$SECONDARYLOGFILE"
+       processCmd "chmod 666 $SECONDARYLOGPATH/$SECONDARYLOGFILE"
+    fi
+    exec {SECONDARYLOGFD}>$SECONDARYLOGPATH/$SECONDARYLOGFILE
+    if [ $? -gt 0 ]; then
+        log "NULL|ERROR|Error setting up file descriptor for $SECONDARYLOGPATH/$SECONDARYLOGFILE"
+        return 1
+    fi
+    log "NULL|INFO|Secondary log activated. All log will go in $SECONDARYLOGPATH/$SECONDARYLOGFILE." t
+    SECONDARYLOGACTIVE=0
+    return 0
+}
+
+function closeSecondaryLog {
+    log "NULL|INFO|Closing secondary log." t
+    [ ${SECONDARYLOGFD} ] && exec {SECONDARYLOGFD}>&-
+    if [ $? -gt 0 ]; then
+        log "NULL|ERROR|Error closing file descriptor: for $SECONDARYLOGPATH/$SECONDARYLOGFILE"
+        return 1
+    fi
+    SECONDARYLOGACTIVE=1
+    SECONDARYLOGFILEPATH=$SLP
+    unset SECONDARYLOGFILE
+    log "NULL|INFO|Secondary log deactivated." t
+    return 0
+}
+
 function evalPrompt {
     case $1 in
         listcommands)
             listCommands
             ;;
         unpack)
+            setupSecondaryLog "unpack.log"
             unpack
-            return $?
+            _r=$?
+            closeSecondaryLog
+            return $_r
             ;;
         depcheck)
+            setupSecondaryLog "depcheck.log"
             log "GEN|INFO|Running dependency check scripts" t
             sourceScript "${DEPCHECKCMDFILE}"
-            return $?
+            _r=$?
+            closeSecondaryLog
+            return $_r
             ;;
         preconfig)
+            setupSecondaryLog "preconfig.log"
             log "GEN|INFO|Running pre-config scripts" t
             if [ $HASBUILDDIR -lt 1 ]; then
                 mPush $SD/$SDN
@@ -1049,53 +1055,67 @@ function evalPrompt {
             sourceScript "${PRECONFIGCMDFILE}"
             res=$?
             mPop
+            closeSecondaryLog
             return $res
             ;;
         config)
+            setupSecondaryLog "config.log"
             log "GEN|INFO|Running config scripts" true
             mPush $BUILDDIR
             sourceScript "${CONFIGCMDFILE}"
             res=$?
             mPop
+            closeSecondaryLog
             return $res
             ;;
         compile)
+            setupSecondaryLog "compile.log"
             log "GEN|INFO|Running compile scripts" true
             mPush $BUILDDIR
             sourceScript "${COMPILECMDFILE}"
             res=$?
             mPop
+            closeSecondaryLog
             return $res
             ;;
         check)
+            setupSecondaryLog "check.log"
             log "GEN|INFO|Running check scripts" true
             mPush $BUILDDIR
             sourceScript "${CHECKCMDFILE}"
             res=$?
             mPop
+            closeSecondaryLog
             return $res
             ;;
         preinstall)
+            setupSecondaryLog "preinstall.log"
             log "GEN|INFO|Running PreInstall scripts" true
             mPush $BUILDDIR
             sourceScript "${PREINSTALLCMDFILE}"
             res=$?
             mPop
+            closeSecondaryLog
             return $res
             ;;
         install)
+            setupSecondaryLog "install.log"
             log "GENINFO|Running install scripts" true
             mPush $BUILDDIR
             sourceScript "${INSTALLCMDFILE}"
             res=$?
             mPop
+            closeSecondaryLog
+            [ $res -eq 0 ] && [ $NEXTPKG ] && log "GEN|INFO|Next package: $NEXTPKG" t
             return $res
             ;;
         preimplement)
+            setupSecondaryLog "preimplement.log"
             log "GEN|INFO|Running preImplement scripts" true
             mPush $BUILDDIR
             sourceScript "${PREIMPLEMENTCMDFILE}"
             res=$?
+            closeSecondaryLog
             mPop
             return $res
             ;;
@@ -1106,7 +1126,9 @@ function evalPrompt {
             listTask
             ;;
         cleanup)
+            setupSecondaryLog "cleanup.log"
             cleanup
+            closeSecondaryLog
             ;;
         preppkg)
             prepPkg

@@ -1,2 +1,3 @@
 processCmd "./configure --prefix=/tools --without-bash-malloc"
-[ $? -gt 0 ] log "PKG|ERROR|Error with configure." t && return 1 || return 0
+[ $? -gt 0 ] && return 1
+return 0

@@ -1,6 +1,6 @@
 mPush unix
 processCmd "./configure --prefix=/tools"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with config." t && mPop && return 1
+[ $? -gt 0 ] && mPop && return 1
 
 mPop
 return 0

@@ -1,13 +1,13 @@
 log "PKG|INFO|Create a full version of the internal header." t
 cat gcc/limitx.h gcc/glimits.h gcc/limity.h > \
     `dirname $($LFS_TGT-gcc -print-libgcc-file-name)`/include-fixed/limits.h
-[ $? -gt 0 ] && log "PKG|ERRPR|Error in preconfigPass2." t && return 1
+[ $? -gt 0 ] && return 1
 
 
 log "PKG|INFO|Changing the location of GCC's default dynamic linker." t
 for file in gcc/config/{linux,i386/linux{,64}}.h
 do
-    cp -uv $file{,.orig}
+    [ $DEBUG -eq 1 ] && cp -uv $file{,.orig} >&${SECONDARYLOGFD} 2>&1 || cp -uv $file{,.orig} > >( tee >&${SECONDARYLOGFD}) 2> >(tee >&${SECONDARYLOGFD} >&2)
     sed -e 's@/lib\(64\)\?\(32\)\?/ld@/tools&@g' \
         -e 's@/usr@/tools@g' $file.orig > $file
     echo '
@@ -17,8 +17,6 @@ do
     #define STANDARD_STARTFILE_PREFIX_2 ""' >> $file
     touch $file.orig
 done
-[ $? -gt 0 ] && log "PKG|ERROR|Something seems wrong." t && return 1
-
 
 log "PKG|INFO|Adjusting if x64 system." t
 case $(uname -m) in
@@ -27,32 +25,30 @@ case $(uname -m) in
             -i.orig gcc/config/i386/t-linux64
         ;;
 esac
-[ $? -gt 0 ] && log "PKG|ERROR|Something is wrong." t && return 1
-
 
 log "PKG|INFO|Unpacking extra packages." t
 
 
 log "PKG|INFO|Uncompress mpfr." t
 processCmd "tar -xf ../mpfr-4.0.1.tar.xz"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with tar mpfr." t && return 1
+[ $? -gt 0 ] && return 1
 
 processCmd "mv -v mpfr-4.0.1 mpfr"
-[ $? -gt 0 ] && log "PKG|ERROR|Error mv mpfr." t && return 1
+[ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Uncompress gmp." t
 processCmd "tar -xf ../gmp-6.1.2.tar.xz"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with tar gmp." t && return 1
+[ $? -gt 0 ] && return 1
 
 processCmd "mv -v gmp-6.1.2 gmp"
-[ $? -gt 0 ] && log "PKG|ERROR|Error mv gmp." t && return 1
+[ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Uncompress mpc." t
 processCmd "tar -xf ../mpc-1.1.0.tar.gz"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with tar mc." t && return 1
+[ $? -gt 0 ] && return 1
 
 processCmd "mv -v mpc-1.1.0 mpc"
-[ $? -gt 0 ] && log "PKG|ERROR|Error mv mpc." t && return 1
+[ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Done." t
 return 0

@@ -1,5 +1,7 @@
 mPush gettext-tools
-cp -v src/{msgfmt,msgmerge,xgettext} /tools/bin
-[ $? -gt 0 ] && log "PKG|ERROR|Error with install." t && mPop && return 1
+for d_ in {msgfmt,msgmerge,xgettext}; do
+    processCmd "cp -v src/$d_ /tools/bin"
+done
+[ $? -gt 0 ] && mPop && return 1
 mPop
 return 0

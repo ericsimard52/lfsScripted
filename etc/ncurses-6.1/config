@@ -1,8 +1,8 @@
 log "PKG|INFO|Ensure gawk is found during compilation"
-processCmd "sed -i s/mawk// configure"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with sed." t && return 1
+sed -i s/mawk// configure
+[ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Configuring." t
 processCmd "./configure --prefix=/tools --with-shared --without-debug --without-ada --enable-widec --enable-overwrite"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with configure." t && return 1
+[ $? -gt 0 ] && return 1
 return 0

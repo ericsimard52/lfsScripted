@@ -1,7 +1,7 @@
 log "PKG|INFO|Implement work around an error caused by glibc" t
 sed -i '211,217 d; 219,229 d; 232 d' glob/glob.c
-[ $? -gt 0 ] && log "PKG|ERROR|Error with sed." t && return 1
+[ $? -gt 0 ] && return 1
 
 processCmd "./configure --prefix=/tools --without-guile"
-[ $? -gt 0 ] && log "PKG|ERROR|Error with configure." t && return 1
+[ $? -gt 0 ] && return 1
 return 0

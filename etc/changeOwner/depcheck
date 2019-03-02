@@ -1,4 +1,4 @@
-sudo chown -cR root:root $LFS/tools
+processCmd "sudo chown -cR root:root $LFS/tools"
 [ $? -gt 0 ] && log "GEN|WARNING|Changing ownership of $LFS/tools to root. This is know to happen" t
 return 0
 
