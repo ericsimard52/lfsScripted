@@ -1,10 +1,10 @@
 mPush gettext-tools
-if [ $DEBUG -eq 0 ]; then
-    EMACS="no" ./configure --prefix=/tools --disable-shared > >( tee >&${SECONDARYLOGFD} ) 2> >( tee >&${SECONDARYLOGFD} 2>&1 )
-else
-    EMACS="no" ./configure --prefix=/tools --disable-shared >&${SECONDARYLOGFD} 2>&1
-fi
+CMD=( export EMACS="no" )
+processCmd
+[ $? -gt 0 ] && mPop && return 1
 
+CMD=( ./configure --prefix=/tools --disable-shared )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
 
 mPop

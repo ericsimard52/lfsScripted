@@ -8,11 +8,13 @@ declare -a PARTITIONDEV PARTITIONNAME PARTITIONMOUNT PARTITIONFS
 declare UNPACKCMD
 declare MAKEFLAGS
 declare DEBUG=0
-## Location and file descriptor of main log destination.
+## Location and file descriptor of main & secondary log destination.
 declare LOGFILE LOGFD
 declare SLP="/var/log/pkm"
 declare SECONDARYLOGPATH SECONDARYLOGFILE SECONDARYLOGFD 
 declare SECONDARYLOGACTIVE=1
+declare CMD
+declare DEVMODE=0
 
 # Config files
 declare GENCONFIGFILE DEPCHECKCMDFILE PRECONFIGCMDFILE CONFIGCMDFILE COMPILECMDFILE CHECKCMDFILE
@@ -49,7 +51,8 @@ function singleton {
     checkLfsUser
     [ $? -gt 0 ] && quitPkm 1 "Error with checkLfsUser"
     log "GEN|INFO|Installing lfsScripted into lfs home folder." t
-    processCmd "sudo cp -fr $DEVBASE $LFSUSERHOME"
+    CMD=( sudo cp -fr $DEVBASE $LFSUSERHOME )
+    processCmd
     [ $? -gt 0 ] && quitPkm 1 "Error copy $DEVBASE -> $LFSUSERHOME"
 
     checkPerm $LFSUSERHOME/lfsScripted
@@ -65,13 +68,16 @@ function updatePkgFromLocal {
     readConfig
     startLog
     log "GEN|INFO|Making backup of pkm.conf in $LFSUSERHOME" t
-    processCmd "sudo cp -fv $LFSUSERHOME/lfsScripted/etc/pkm.conf $LFSUSERHOME/lfsScripted/etc/pkm.conf.bak"
+    CMD=( sudo cp -fv $LFSUSERHOME/lfsScripted/etc/pkm.conf $LFSUSERHOME/lfsScripted/etc/pkm.conf.bak )
+    processCmd
 
     log "GEN|INFO|Copy source scripts to $LFSUSERHOME" t
-    processCmd "sudo cp -frv ./etc/* $LFSUSERHOME/lfsScripted/etc/"
+    CMD=( sudo cp -frv ./etc/* $LFSUSERHOME/lfsScripted/etc/ )
+    processCmd
 
     log "GEN|INFO|Restaure pkm.conf it got overwriten." t
-    processCmd "sudo mv -v $LFSUSERHOME/lfsScripted/etc/pkm.conf.bak $LFSUSERHOME/lfsScripted/etc/pkm.conf"
+    CMD=( sudo mv -v $LFSUSERHOME/lfsScripted/etc/pkm.conf.bak $LFSUSERHOME/lfsScripted/etc/pkm.conf )
+    processCmd
 
     checkPerm $LFSUSERHOME/lfsScripted
     [ $? -gt 0 ] && quitPkm 1 "Error with checkPerm in updatePkgFromLocal"
@@ -86,7 +92,8 @@ function updatePkm {
     readConfig
     startLog
     log "GEN|INFO|Installing pkm.sh into lfs home." t
-    processCmd "sudo cp -vf ./pkm.sh $LFSUSERHOME/lfsScripted"
+    CMD=( sudo cp -vf ./pkm.sh $LFSUSERHOME/lfsScripted )
+    processCmd
     [ $? -gt 0 ] && quitPkm 1 "Error with cp pkm.sh to lfs"
     sudo sed -i -e 's:Git/::g' $LFSUSERHOME/lfsScripted/pkm.sh
     sudo sed -i -e 's:tech:lfs:g' $LFSUSERHOME/lfsScripted/etc/pkm.conf
@@ -179,7 +186,8 @@ function mountLfs {
     log "GEN|INFO|Checking mountpoint." t
     if [ ! -d $LFS ]; then
         log "GEN|ERROR|Mount point $LFS does not exist. Creating." t
-        processCmd "sudo mkdir -pv $LFS"
+        CMD=( sudo mkdir -pv $LFS )
+        processCmd
         [ $? -gt 0 ] && quitPkm 1 "GEN|FATAL|Error creating $LFS."
     fi
     log "GEN|INFO|Mounting partitions." t
@@ -195,7 +203,8 @@ function mountLfs {
         if [[ "$pn" = "swap" ]]; then
             if [[ `grep /dev/ < <(sudo swapon -s) |wc -l` < 1 ]]; then
                 log "GEN|INFO|Found swap partition, Ativating." t
-                processCmd "sudo /sbin/swapon -v $pd"
+                CMD=( sudo /sbin/swapon -v $pd )
+                processCmd
                 [ $? -gt 0 ] && quitPkm 1 "Error activating swap"
                 log "GEN|WARNING|Swap should be last to mount, if not, next partition will not be mounted." t
                 return 0
@@ -207,13 +216,15 @@ function mountLfs {
 
         if [ ! -d $LFS$pm ]; then
             log "GEN|WARNING|$LFS$pm does not exists, creating." t
-            processCmd "sudo mkdir -pv $LFS$pm"
+            CMD=( sudo mkdir -pv $LFS$pm )
+            processCmd
             [ $? -gt 0 ] && quitPkm 1 "$LFS$pm does not exists and unable to create."
         fi
         log "GEN|INFO|Check if $pd mounted on $pm" t
         if [[ `grep "$pd on $pm" < <(mount) | wc -l` < 1 ]]; then
             log "GEN|INFO|Mounting $pd on $pm" t
-            processCmd "sudo mount -v -t $pf $pd $LFS$pm"
+            CMD=( sudo mount -v -t $pf $pd $LFS$pm )
+            processCmd
             [ $? -gt 0 ] && quitPkm 1 "Unable to mount $pd on $pm"
             ((x++))
         else
@@ -243,7 +254,8 @@ function unMountLfs {
         log "GEN|INFO|Check if $pd mounted on $pm" t
         if [[ `grep "$pd on $pm" < <(mount) | wc -l` > 0 ]]; then
             log "GEN|INFO|Unmounting $pd from $pm" t
-            processCmd "sudo umount -v $pd"
+            CMD=( sudo umount -v $pd )
+            processCmd
             [ $? -gt 0 ] && log "{GEN,ERR}|ERROR|Error unmounting $pd, check manually." t
         else
             log "GEN|INFO|$pd not mounted." t
@@ -257,9 +269,11 @@ function checkSources {
     log "GEN|INFO|Checking if source directory $SD exists." t
     if [ ! -d $SD ]; then
         log "GEN|WARNING|Source directory $SD does not exists, creating." t
-        processCmd "sudo mkdir -vp $SD"
+        CMD=( sudo mkdir -vp $SD )
+        processCmd
         [ $? -gt 0 ] && quitPkm 1 "Unable to create $SD"
-        processCmd "sudo chmod -v a+wt $SD"
+        CMD=( sudo chmod -v a+wt $SD )
+        processCmd
         [ $? -gt 0 ] && log "GEN|WARNING|chmod a+wt on $SD reported failure, check manually." t
     fi
     log "GEN|INFO|Done." t
@@ -267,7 +281,8 @@ function checkSources {
     log "GEN|INFO|Do we have wget.list?" t
     if [ ! -f $CONFBASE/wget.list ]; then
         log "GEN|WARNING|wget.list not found, fetching." t
-        processCmd "sudo wget -v -O $CONFBASE/wget.list -v \"http://www.linuxfromscratch.org/lfs/view/stable/wget-list\""
+        CMD=( sudo wget -v -O $CONFBASE/wget.list -v "http://www.linuxfromscratch.org/lfs/view/stable/wget-list" )
+        processCmd
         [ $? -gt 0 ] && quitPkm 1 "Unable to fetch wget.list. I will crash if I don't quit now"
     fi
     log "GEN|INFO|Checking source packages." t
@@ -276,10 +291,11 @@ function checkSources {
         log "GEN|INFO|Checking for $fn" t
         if [ ! -f $SD/$fn ]; then
             log "GEN|INFO|$fn not found, fetching." t
-            processCmd "sudo wget -v $line -O $SD/$fn"
+            CMD=( sudo wget -v $line -O $SD/$fn )
+            processCmd
             if [ $? -gt 0 ]; then
                 log "GEN|ERROR|Unable to fetch $fn." t
-                [ -e $SD/$fn ] && processCmd "rm -v $SD/$fn"
+                [ -e $SD/$fn ] && CMD=( rm -v $SD/$fn ) && processCmd
             fi
 
         fi
@@ -288,7 +304,8 @@ function checkSources {
     log "GEN|INFO|Do we have md5sums?" t
     if [ ! -f $CONFBASE/md5sums ]; then
         log "GEN|WARNING|md5sums not found, fetching." t
-        processCmd "sudo wget -v -O $CONFBASE/md5sums -v \"http://www.linuxfromscratch.org/lfs/view/stable/md5sums\""
+        CMD=( sudo wget -v -O $CONFBASE/md5sums -v "http://www.linuxfromscratch.org/lfs/view/stable/md5sums" )
+        processCmd
         [ $? -gt 0 ] && log "GEN|WARNING|Unable to fetch md5sums check list. Unsure how the program will behave at check time." t
     fi
 
@@ -298,15 +315,24 @@ function checkSources {
     for _dp in ${_dummyPkgList[@]}; do
         if [ ! -e $SD/$_dp ]; then
             log "GEN|INFO|Creating dummy package $_dp" t
-            processCmd "sudo touch $SD/$_dp"
+            CMD=( sudo touch $SD/$_dp )
+            processCmd
             [ $? -gt 0 ] && log "GEN|WARNING|Unable to create $_dp dummy pkg. Also, make this better. Dummy Package will be needed more often." t
         fi
     done
     unset _dummyPkgList _dp
     log "GEN|INFO|Checking md5." t
     mPush $SD
-    processCmd "sudo md5sum -c $CONFBASE/md5sums"
-    [ $? -gt 0 ] && mPop && quitPkm 1 "Source md5sum check failed. Check logs for details."
+    CMD=( sudo cp $CONFBASE/md5sums ./ )
+    processCmd
+    CMD=( sudo md5sum -c ./md5sums )
+    processCmd
+    if [ $? -gt 0 ]; then
+        mPop
+        CMD=( sudo rm $CONFBASE/md5sums )
+        processCmd
+        quitPkm 1 "Source md5sum check failed. Check logs for details."
+    fi
     mPop
     return 0
 }
@@ -316,14 +342,16 @@ function checkLfsUser {
     grep -q lfs < /etc/group
     if [[ $? > 0 ]]; then
         log "GEN|WARNING|lfs group does not exists, creating." t
-        processCmd "sudo groupadd lfs"
+        CMD=( sudo groupadd lfs )
+        processCmd
         [ $? -gt 0 ] && quitPkm 1 "Unable to create lfs group"
     fi
 
     grep -q lfs < /etc/passwd
     if [[ $? > 0 ]];then
         log "GEN|WARNING|lfs user not found. Fixing." t
-        processCmd "sudo useradd -s /bin/bash -g lfs -d $LFSUSERHOME -m -k $DEVBASE/etc/lfsHomeSkel lfs"
+        CMD=( sudo useradd -s /bin/bash -g lfs -d $LFSUSERHOME -m -k $DEVBASE/etc/lfsHomeSkel lfs )
+        processCmd
         [ $? -gt 0 ] && quitPkm 1 "Unable to add lfs user."
 
         log "GEN|INFO|Set password for lfs user." t
@@ -338,12 +366,14 @@ function checkStruct {
     log "GEN|INFO|Checking $LFS/tools." t
     if [ ! -d $LFS/tools ]; then
         log "GEN|WARNING|$LFS/tools does not exists, creating." t
-        processCmd "sudo mkdir -pv $LFS/tools"
+        CMD=( sudo mkdir -pv $LFS/tools )
+        processCmd
         [ $? -gt 0 ] && quitPkm 1 "Error create $LFS/tools."
     fi
     if [ ! -h /tools ]; then
         log "GEN|WARNING|/tools link does not exists, creating." t
-        processCmd "sudo ln -sv $LFS/tools /"
+        CMD=( sudo ln -sv $LFS/tools / )
+        processCmd
         [ $? -gt 0 ] && quitPkm 1 "Error creating /tools link."
     fi
     return 0
@@ -366,9 +396,11 @@ function checkPerm {
                 log "GEN|INFO|Owner of $file: $user"
                 if [[ ! "$user" = "lfs" ]]; then
                     log "GEN|INFO|Fixing ownership of $file." t
-                    processCmd "sudo chown -vR lfs:lfs $file"
+                    CMD=( sudo chown -vR lfs:lfs $file )
+                    processCmd
                     [ $? -gt 0 ] && log "GEN|ERROR|Error changing ownership of $file" t && res=1
-                    processCmd "sudo chmod g+w -vR $file"
+                    CMD=( sudo chmod g+w -vR $file )
+                    processCmd
                     [ $? -gt 0 ] && log "GEN|ERROR|Error changing mode of $file" t && res=1
                 fi
 
@@ -378,9 +410,11 @@ function checkPerm {
             log "GEN|INFO|Owner of $file: $user"
             if [[ ! "$user" = "lfs" ]]; then
                 log "GEN|INFO|Fixing ownership of $file." t
-                processCmd "sudo chown -v lfs:lfs $file"
+                CMD=( sudo chown -v lfs:lfs $file )
+                processCmd
                 [ $? -gt 0 ] && log "GEN|ERROR|Error changing ownership of $file" t && res=1
-                processCmd "sudo chmod g+w -v $file"
+                CMD=( sudo chmod g+w -v $file )
+                processCmd
                 [ $? -gt 0 ] && log "GEN|ERROR|Error changing mode of $file" t && res=1
             fi
         fi
@@ -404,12 +438,14 @@ function startupCheck {
 }
 
 function checkInstalled {
-    processCmd "command -v "$1
+    CMD=( command -v $1 )
+    processCmd
     [ $? -gt 0 ] && return 1 || return 0
 }
 
 function checkLibInstalled {
-    processCmd "sudo ldconfig -p | grep $1"
+    CMD=( sudo ldconfig -p '|' grep $1 )
+    processCmd
     [ $? -gt 0 ] && return 1 || return 0
 }
 
@@ -709,7 +745,8 @@ function loadPkg {
     if [ ! -f $SD/$TF ]; then
         log "PKG|WARNING|Why are we doing this?" t
         log "{GEN,ERR}|WARNING|Package $tf not found in source $SD, creating." t
-        processCmd " install -vm664 $DEVBASE/sources/$TF $SD/$TF"
+        CMD=( install -vm664 $DEVBASE/sources/$TF $SD/$TF )
+        processCmd
         return
     fi
 
@@ -722,7 +759,8 @@ function loadPkg {
         log "GEN|INFO|Checking if build dir: $BUILDDIR exists." t
         if [ ! -d "$BUILDIR" ]; then
             log "GEN|WARNING|Build directory flag set, but dir does not exist, creating..." t
-            processCmd "install -vdm755 $BUILDDIR"
+            CMD=( install -vdm755 $BUILDDIR )
+            processCmd
             [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error creating $BUILDDIR." t && return 1
         fi
     else
@@ -732,19 +770,19 @@ function loadPkg {
 
     # Secondary log setup
     SECONDARYLOGPATH=$SLP/$SDN
-    [ ! -d $SECONDARYLOGPATH ] && processCmd "install -vdm 777 $SECONDARYLOGPATH"
+    [ ! -d $SECONDARYLOGPATH ] && CMD=( install -vdm 777 $SECONDARYLOGPATH ) && processCmd
     # Adjusting the unpack commands
     log "GEN|INFO|Adjusting unpack command for $EXT." t
     if [[ "$EXT" == "xz" ]]; then
-        UNPACKCMD="tar xvf $TF"
+        UNPACKCMD=( tar xvf $TF )
     elif [[ "$EXT" == "gz" ]]; then
-        UNPACKCMD="tar xvfz $TF"
+        UNPACKCMD=( tar xvfz $TF )
     elif [[ "$EXT" == "gzip" ]]; then
-        UNPACKCMD="tar xvfz $TF"
+        UNPACKCMD=( tar xvfz $TF )
     elif [[ "$EXT" == "bz2" ]]; then
-        UNPACKCMD="tar xvfj $TF"
+        UNPACKCMD=( tar xvfj $TF )
     elif [[ "$EXT" == "tgz" ]]; then
-        UNPACKCMD="tar xvfz $TF"
+        UNPACKCMD=( tar xvfz $TF )
     else
         log "ERR|FATAL|Unknown package unpack method." true
         return 0
@@ -768,14 +806,32 @@ function unpack {
         log "{GEN,PKG,ERR}|FATAL|$TF not found." t
         return 1
     fi
-
-    log "PKG|INFO|Running Cmd: $UNPACKCMD" t t
+    printf -v cmd_str '%q ' "${UNPACKCMD[@]}"
+    log "PKG|INFO|Running Cmd: $cmd_str" t
     mPush $SD
-    processCmd "${UNPACKCMD}"
-    [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error unpacking with $UNPACKCMD" t && return 1
+
+    if [ $DEBUG -eq 1 ]; then
+        if [ $SECONDARYLOGACTIVE -eq 0 ]; then
+            "${UNPACKCMD[@]}" >&${SECONDARYLOGFD} 2>&${SECONDARYLOGFD}
+        else
+            "${UNPACKCMD[@]}" >&${LOGFD} 2>&${LOGD}
+        fi
+    elif [ $DEBUG -eq 0 ]; then
+        if [ $SECONDARYLOGACTIVE -eq 0 ]; then
+            "${UNPACKCMD[@]}" 2>&1 | tee >( cat >&${SECONDARYLOGFD} )
+        else
+            "${UNPACKCMD[@]}" 2>&1 | tee >( cat >&${LOGFD} 2>&1 )
+        fi
+    fi
+    if [ $? -gt 0 ]; then
+        log "GEN|ERROR|Error processcing cmd $@" t
+        return 1
+    fi
+
     if [ $HASBUILDDIR == 0 ] && [ ! -d $SD/$SDN/build ]; then
         log "PKG|INFO|Creating build directory" t
-        processCmd "install -olfs -glfs -vdm755 $SD/$SDN/build"
+        CMD=( install -olfs -glfs -vdm755 $SD/$SDN/build )
+        processCmd
         [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error creating build directory" t && return 1
     fi
 
@@ -848,15 +904,37 @@ function searchPkg {
 }
 
 function processCmd {
+    printf -v cmd_str '%q ' "${CMD[@]}"
+    log "GEN|INFO|Processing cmd: $cmd_str" t
     eval "tput sgr0"
-    log "GEN|INFO|Processing cmd: ${@}"
-    if [[ $DEBUG = 0 ]]; then
-        [ $SECONDARYLOGACTIVE -eq 0 ] && $@ >&${SECONDARYLOGFD} 2>&1 || $@ >&${LOGFD} 2>&1
-    elif [[ $DEBUG = 1 ]]; then
-        [ $SECONDARYLOGACTIVE -eq 0 ] && $@ | tee >&${SECONDARYLOGFD} 2>&1 || $@ | tee >&${LOGFD} 2>&1
+    if [ $DEBUG -eq 1 ]; then
+        if [ $SECONDARYLOGACTIVE -eq 0 ]; then
+            "${CMD[@]}" >&${SECONDARYLOGFD} 2>&${SECONDARYLOGFD}
+        else
+            "${CMD[@]}" >&${LOGFD} 2>&${LOGFD}
+        fi
+        if [ $? -gt 0 ]; then
+            log "GEN|ERROR|Error processcing $cmd_str" t
+            unset CMD
+            return 1
+        fi
+
+    elif [ $DEBUG -eq 0 ]; then
+        if [ $SECONDARYLOGACTIVE -eq 0 ]; then
+            "${CMD[@]}" 2>&1 | tee >( cat >&${SECONDARYLOGFD} )
+        else
+            "${CMD[@]}" 2>&1 | tee >( cat >&${LOGFD} 2>&1 )
+        fi
+        if [ ${PIPESTATUS[0]} -gt 0 ]; then
+            log "GEN|ERROR|Error processcing $cmd_str" t
+            unset CMD
+            return 1
+        fi
+
     fi
-    [ $? -gt 0 ] && log "GEN|ERROR|Error processing cmd: $@" t && return 1
+    unset CMD
     return 0
+
 }
 
 function promptUser {
@@ -875,7 +953,8 @@ function sourceScript {
 
 function cleanup {
     log "GEN|INFO|Cleaning up source file $SD/$SDN" t
-    processCmd "rm -vfr $SD/$SDN"
+    CMD=( rm -vfr $SD/$SDN )
+    processCmd
     [ $? -gt 0 ] && log "{PKG,ERR}|ERROR|Error cleaning up." t && return 1
     return 0
 }
@@ -959,12 +1038,12 @@ function listTask {
 
 function mPush {
     [ ! $1 ] && return 1
-    processCmd "pushd $1"
+    pushd $1 > /dev/null 2>&${LOGFD}
     [ $? -gt 0 ] && quitPkm 1 "Error pushing $1 onto stack." || return 0
 }
 
 function mPop {
-    processCmd "popd"
+    popd > /dev/null 2>&${LOGFD}
     [ $? -gt 0 ] && quitPkm 1 "Error poping directory of the stack" || return 0
 }
 
@@ -997,8 +1076,10 @@ function setupSecondaryLog {
     SECONDARYLOGFILE=$1
     if [ ! -e $SECONDARYLOGPATH/$SECONDARYLOGFILE ]; then
        log "NULL|INFO|$SECONDARYLOGFILE does not exists. Creating." t
-       processCmd "touch $SECONDARYLOGPATH/$SECONDARYLOGFILE"
-       processCmd "chmod 666 $SECONDARYLOGPATH/$SECONDARYLOGFILE"
+       CMD=( touch $SECONDARYLOGPATH/$SECONDARYLOGFILE )
+       processCmd
+       CMD=( chmod 666 $SECONDARYLOGPATH/$SECONDARYLOGFILE )
+       processCmd
     fi
     exec {SECONDARYLOGFD}>$SECONDARYLOGPATH/$SECONDARYLOGFILE
     if [ $? -gt 0 ]; then
@@ -1106,7 +1187,7 @@ function evalPrompt {
             res=$?
             mPop
             closeSecondaryLog
-            [ $res -eq 0 ] && [ $NEXTPKG ] && log "GEN|INFO|Next package: $NEXTPKG" t
+            [ $res -eq 0 ] && [ $NEXTPKG ] && log "GEN|INFO|Next package: \e[32m$NEXTPKG" t
             return $res
             ;;
         preimplement)

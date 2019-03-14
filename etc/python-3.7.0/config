@@ -1,0 +1,4 @@
+CMD=( ./configure --prefix=/tools --without-ensurepip )
+processCmd
+[ $? -gt 0 ] && return 1
+return 0

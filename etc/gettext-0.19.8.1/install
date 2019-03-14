@@ -1,7 +1,8 @@
 mPush gettext-tools
 for d_ in {msgfmt,msgmerge,xgettext}; do
-    processCmd "cp -v src/$d_ /tools/bin"
+    CMD=( cp -v src/$d_ /tools/bin )
+    processCmd
+    [ $? -gt 0 ] && mPop && return 1
 done
-[ $? -gt 0 ] && mPop && return 1
 mPop
 return 0

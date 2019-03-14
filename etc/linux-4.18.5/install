@@ -1,6 +1,8 @@
-processCmd "make INSTALL_HDR_PATH=dest headers_install"
+CMD=( make INSTALL_HDR_PATH=dest headers_install )
+processCmd
 [ $? -gt 0 ] && return 1
 
-processCmd "cp -rv dest/include/* /tools/include"
+CMD=( cp -rv dest/include/* /tools/include )
+processCmd
 [ $? -gt 0 ] && return 1
 return 0

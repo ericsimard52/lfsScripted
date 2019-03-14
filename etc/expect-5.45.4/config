@@ -1,7 +1,14 @@
 log "PKG|INFO|Making backup of configure." t
-[ $DEBUG -eq 1 ] && cp -v configure{,.orig} >&${SECONDARYLOGFD} 2>&1 || cp -v configure{,.orig}  > >( tee >&${SECONDARYLOGFD} ) 2> >( tee <&${SECONDARYLOGFD} 2>&1 )
+CMD=( cp -v configure{,.orig} )
+processCmd
 [ $? -gt 0 ] && return 1
-
+if [ $DEVMODE -eq 0 ]; then
+    promptUser "Check result of previous command. Continue? Y/n"
+    read U
+    case $U in
+        n) return 1 ;;
+    esac
+fi
 
 log "PKG|INFO|Forcing Expect's configure script to use /bin/stty." t
 sed 's:/usr/local/bin:/bin:' configure.orig > configure
@@ -9,7 +16,8 @@ sed 's:/usr/local/bin:/bin:' configure.orig > configure
 
 
 log "PKG|INFO|Configure package." t
-processCmd "./configure --prefix=/tools --with-tcl=/tools/lib --with-tclinclude=/tools/include"
+CMD=( ./configure --prefix=/tools --with-tcl=/tools/lib --with-tclinclude=/tools/include )
+processCmd
 [ $? -gt 0 ] && return 1
 
 return 0

@@ -1,3 +1,4 @@
-processCmd "sh Configure -des -Dprefix=/tools -Dlibs=-lm -Uloclibpth -Ulocincpth"
+CMD=( sh Configure -des -Dprefix=/tools -Dlibs=-lm -Uloclibpth -Ulocincpth )
+processCmd
 [ $? -gt 0 ] && return 1
 return 0

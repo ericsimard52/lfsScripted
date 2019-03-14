@@ -2,55 +2,71 @@ declare -a dl_=($LFS/dev $LFS/proc $LFS/sys $LFS/run)
 
 for d_ in ${dl_[@]}; do
     log "GEN|INFO|Creating directory $d_." t
-    processCmd "sudo mkdir -pv $d_"
+    CMD=( sudo mkdir -pv $d_ )
+    processCmd
 done
 
 if [ ! -c $LFS/dev/console ]; then
     log "GEN|INFO|Creating initial Device Nodes console" t
-    processCmd "sudo mknod -m 600 $LFS/dev/console c 5 1"
+    CMD=( sudo mknod -m 600 $LFS/dev/console c 5 1 )
+    processCmd
 fi
 
 if [ ! -c $LFS/dev/null ]; then
     log "GEN|INFO|Creating null device." t
-    processCmd "sudo mknod -m 666 $LFS/dev/null c 1 3"
+    CMD=( sudo mknod -m 666 $LFS/dev/null c 1 3 )
+    processCmd
 fi
 
 
 findmnt $LFS/dev
 if [ $? -gt 0 ]; then
     log "GEN|INFO|Binding host /dev to lfs /dev" t
-    processCmd "sudo mount -v --bind /dev $LFS/dev"
+    CMD=( sudo mount -v --bind /dev $LFS/dev )
+    processCmd
     [ $? -gt 0 ] && log "GEN|WARNING|Unable to bind dev between host and lfs" t && return 1
 fi
 
 findmnt $LFS/dev/pts
 if [ $? -gt 0 ]; then
     log "GEN|INFO|Mounting $LFS/dev/pts" t
-    processCmd "sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620"
+    CMD=( sudo mount -vt devpts devpts $LFS/dev/pts -o gid=5,mode=620 )
+    processCmd
     [ $? -gt 0 ] && log "GEN|WARNING|Error mount devpts" t && return 1
 fi
 
 findmnt $LFS/proc
 if [ $? -gt 0 ]; then
     log "GEN|INFO|Mounting $LFS/proc" t
-    processCmd "sudo mount -vt proc proc $LFS/proc"
+    CMD=( sudo mount -vt proc proc $LFS/proc )
+    processCmd
     [ $? -gt 0 ] && log "GEN|WARNING|Error mount proc" t && return 1
 fi
 
 findmnt $LFS/sys
 if [ $? -gt 0 ]; then
-    processCmd "sudo mount -vt sysfs sysfs $LFS/sys"
+    CMD=( sudo mount -vt sysfs sysfs $LFS/sys )
+    processCmd
     [ $? -gt 0 ] && log "GEN|WARNING|Error mount sys" t && return 1
 fi
 
 findmnt $LFS/run
 if [ $? -gt 0 ]; then
-    processCmd "sudo mount -vt tmpfs tmpfs $LFS/run"
+    CMD=( sudo mount -vt tmpfs tmpfs $LFS/run )
+    processCmd
     [ $? -gt 0 ] && log "GEN|WARNING|Error mount run" t && return 1
 fi
 
 if [ -h $LFS/dev/shm ]; then
-    processCmd "sudo mkdir -pv $LFS/$(readlink $LFS/dev/shm)"
+    CMD=( sudo mkdir -pv "$LFS/$(readlink $LFS/dev/shm)" )
+    processCmd
+    if [ $DEVMODE -eq 0 ]; then
+        promptUser "Check previous command mkdir -pv $LFS/$(readlink $LFS/dev/shm). Continue? Yn"
+        read U
+        case $U in
+            n) return 1 ;;
+        esac
+    fi
 fi
 
 

@@ -152,7 +152,8 @@ if [ -x dummy ];then
 else
     log "GEN|ERROR|g++ compilation failed"
 fi
-processCmd "rm -fv dummy.c dummy"
+CMD=( rm -fv dummy.c dummy )
+processCmd
 
 log "GEN|INFO|If the requirements are good. Proceed to the next step." t
 return 0

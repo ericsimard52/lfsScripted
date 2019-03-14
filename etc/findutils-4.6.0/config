@@ -9,7 +9,8 @@ sed -i '/unistd/a #include <sys/sysmacros.h>' gl/lib/mountlist.c
 echo "#define _IO_IN_BACKUP 0x100" >> gl/lib/stdio-impl.h
 [ $? -gt 0 ] && log "NULL|ERROR|Error with echo command." t && return 1
 
-processCmd "./configure --prefix=/tools"
+CMD=( ./configure --prefix=/tools )
+processCmd
 [ $? -gt 0 ] && return 1
 
 return 0

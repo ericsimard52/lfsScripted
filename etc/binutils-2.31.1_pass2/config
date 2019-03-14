@@ -1,13 +1,15 @@
-if [ $DEBUG -eq 0 ]; then
-    CC=$LFS_TGT-gcc \
-      AR=$LFS_TGT-ar \
-      RANLIB=$LFS_TGT-ranlib \
-      ../configure --prefix=/tools --disable-nls --disable-werror --with-lib-path=/tools/lib --with-sysroot > >( tee >&${SECONDARYLOGFD} ) 2> >( tee <&${SECONDARYLOGFD} 2>&1 )
-else
-    CC=$LFS_TGT-gcc \
-      AR=$LFS_TGT-ar \
-      RANLIB=$LFS_TGT-ranlib \
-      ../configure --prefix=/tools --disable-nls --disable-werror --with-lib-path=/tools/lib --with-sysroot >&${SECONDARYLOGFD} 2>&1
-fi    
+CMD=( export CC="$LFS_TGT-gcc" )
+processCmd
+[ $? -gt 0 ] && return 1
+
+CMD=( export AR="$LFS_TGT-ar" )
+processCmd
+[ $? -gt 0 ] && return 1
+
+CMD=( export RANLIB="$LFS_TGT-ranlib" )
+processCmd
+[ $? -gt 0 ] && return 1
+
+CMD=( ../configure --prefix=/tools --disable-nls --disable-werror --with-lib-path=/tools/lib --with-sysroot )
 [ $? -gt 0 ] && return 1
 return 0

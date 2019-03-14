@@ -1,0 +1,3 @@
+sed -i '/def add_multiarch_paths/a \        return' setup.py
+[ $? -gt 0 ] && log "GEN|ERROR|Error with sed command." t && return 1
+return 0

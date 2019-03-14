@@ -7,7 +7,15 @@ cat gcc/limitx.h gcc/glimits.h gcc/limity.h > \
 log "PKG|INFO|Changing the location of GCC's default dynamic linker." t
 for file in gcc/config/{linux,i386/linux{,64}}.h
 do
-    [ $DEBUG -eq 1 ] && cp -uv $file{,.orig} >&${SECONDARYLOGFD} 2>&1 || cp -uv $file{,.orig} > >( tee >&${SECONDARYLOGFD}) 2> >(tee >&${SECONDARYLOGFD} >&2)
+    CMD=( cp -uv $file{,.orig} )
+    processCmd
+    if [ $DEVMODE -eq 0 ]; then
+        promptUser "Check previous commmand. Continue? Yn"
+        read U
+        case $U in
+            n) return 1 ;;
+        esac
+    fi
     sed -e 's@/lib\(64\)\?\(32\)\?/ld@/tools&@g' \
         -e 's@/usr@/tools@g' $file.orig > $file
     echo '
@@ -15,7 +23,8 @@ do
     #undef STANDARD_STARTFILE_PREFIX_2
     #define STANDARD_STARTFILE_PREFIX_1 "/tools/lib/"
     #define STANDARD_STARTFILE_PREFIX_2 ""' >> $file
-    touch $file.orig
+    CMD=( touch $file.orig )
+    processCmd
 done
 
 log "PKG|INFO|Adjusting if x64 system." t
@@ -30,24 +39,30 @@ log "PKG|INFO|Unpacking extra packages." t
 
 
 log "PKG|INFO|Uncompress mpfr." t
-processCmd "tar -xf ../mpfr-4.0.1.tar.xz"
+CMD=( tar -xf ../mpfr-4.0.1.tar.xz )
+processCmd
 [ $? -gt 0 ] && return 1
 
-processCmd "mv -v mpfr-4.0.1 mpfr"
+CMD=( mv -v mpfr-4.0.1 mpfr )
+processCmd
 [ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Uncompress gmp." t
-processCmd "tar -xf ../gmp-6.1.2.tar.xz"
+CMD=( tar -xf ../gmp-6.1.2.tar.xz )
+processCmd
 [ $? -gt 0 ] && return 1
 
-processCmd "mv -v gmp-6.1.2 gmp"
+CMD=( mv -v gmp-6.1.2 gmp )
+processCmd
 [ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Uncompress mpc." t
-processCmd "tar -xf ../mpc-1.1.0.tar.gz"
+CMD=( tar -xf ../mpc-1.1.0.tar.gz )
+processCmd
 [ $? -gt 0 ] && return 1
 
-processCmd "mv -v mpc-1.1.0 mpc"
+CMD=( mv -v mpc-1.1.0 mpc )
+processCmd
 [ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Done." t

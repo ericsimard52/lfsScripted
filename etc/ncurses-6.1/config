@@ -3,6 +3,7 @@ sed -i s/mawk// configure
 [ $? -gt 0 ] && return 1
 
 log "PKG|INFO|Configuring." t
-processCmd "./configure --prefix=/tools --with-shared --without-debug --without-ada --enable-widec --enable-overwrite"
+CMD=( ./configure --prefix=/tools --with-shared --without-debug --without-ada --enable-widec --enable-overwrite )
+processCmd
 [ $? -gt 0 ] && return 1
 return 0

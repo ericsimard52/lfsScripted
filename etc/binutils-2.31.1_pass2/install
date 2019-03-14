@@ -1,9 +1,16 @@
-processCmd "make install"
+CMD=( make install )
+processCmd
 [ $? -gt 0 ] && return 1
-processCmd "make -C ld clean"
+
+CMD=( make -C ld clean )
+processCmd
 [ $? -gt 0 ] && return 1
-processCmd "make -C ld LIB_PATH=/usr/lib:/lib"
+
+CMD=( make -C ld LIB_PATH=/usr/lib:/lib )
+processCmd
 [ $? -gt 0 ] && return 1
-processCmd "cp -v ld/ld-new /tools/bin"
+
+CMD=( cp -v ld/ld-new /tools/bin )
+processCmd
 [ $? -gt 0 ] && return 1
 return 0

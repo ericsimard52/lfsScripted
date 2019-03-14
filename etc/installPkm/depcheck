@@ -3,11 +3,13 @@ log "GEN|INFO|Checking if Pkm directory exist in $pkmPath_." t
 
 if [ ! -d $pkmPath_ ]; then
     log "GEN|INFO|Creating $pkmPath_" t
-    processCmd "sudo install -vdm 0755 $pkmPath_"
+    CMD=( sudo install -vdm 0755 $pkmPath_ )
+    processCmd
     [ $? -gt 0 ] && return 1
 else
     log "NULL|INFO|Removing old file in $pkmPath_" t
-    processCmd "sudo rm -fr $pkmPath_/*"
+    CMD=( sudo rm -fr $pkmPath_/* )
+    processCmd
     [ $? -gt 0 ] && return 1
 fi
 
@@ -16,21 +18,32 @@ log "GEN|INFO|Downloading Pkm." t
 sudo wget -O $pkmPath_/lfs_pkm-BaseInstall.zip -v https://github.com/ericsimard52/lfs_pkm/archive/BaseInstall.zip 
 [ $? -gt 0 ] && mPop && return 1
 pushd $pkmPath_
+
 log "GEN|INFO|Unzipping Pkm" t
-processCmd "sudo unzip -o lfs_pkm-BaseInstall.zip"
+CMD=( sudo unzip -o lfs_pkm-BaseInstall.zip )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
+
 log "GEN|INFO|Moving Pkm" t
-processCmd "sudo mv -v lfs_pkm-BaseInstall/* ./"
+CMD=( sudo mv -v lfs_pkm-BaseInstall/* ./ )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
+
 log "GEN|INFO|Change ownership" t
-processCmd "sudo chown -cR root:root $pkmPath_"
+CMD=( sudo chown -cR root:root $pkmPath_ )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
+
 log "GEN|INFO|Removing unneeded files." t
-processCmd "sudo rm -vfr lfs_pkm-BaseInstall.zip lfs_pkm-BaseInstall"
+CMD=( sudo rm -vfr lfs_pkm-BaseInstall.zip lfs_pkm-BaseInstall )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
+
 log "GEN|INFO|Implementing Pkm" t
-processCmd "sudo cp -vfr $pkmPath_/FAKEROOT/* $LFS/"
+CMD=( sudo cp -vfr $pkmPath_/FAKEROOT/* $LFS/ )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
+
 mPop
 
 return 0

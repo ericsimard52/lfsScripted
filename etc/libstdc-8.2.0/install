@@ -1,4 +1,5 @@
-processCmd "make install"
+CMD=( make install )
+processCmd
 [ $? -gt 0 ] && return 1
 return 0
 

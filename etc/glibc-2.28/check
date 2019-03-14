@@ -2,9 +2,10 @@ echo 'int main(){}' > dummy.c
 $LFS_TGT-gcc dummy.c
 x=`readelf -l a.out | grep ': /tools' | wc -l`
 if [ $x -lt 1 ]; then
-    log "GEN|ERROR|Error check glibc, "`readelf -l a.out | grep ': /tools'`
+    log "GEN|ERROR|Error check glibc, "`readelf -l a.out | grep ': /tools'` t
     return 1
 fi
-processCmd "rm -v dummy.c a.out"
+CMD=( rm -v dummy.c a.out )
+processCmd
 [ $? -gt 0 ] && return 1
 return 0

@@ -1,5 +1,6 @@
 mPush unix
-processCmd "./configure --prefix=/tools"
+CMD=( ./configure --prefix=/tools )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
 
 mPop

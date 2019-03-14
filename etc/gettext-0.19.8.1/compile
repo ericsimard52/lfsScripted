@@ -1,17 +1,22 @@
 mPush gettext-tools
-processCmd "make -C gnulib-lib"
+CMD=( make -C gnulib-lib )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
 
-processCmd "make -C intl pluralx.c"
+CMD=( make -C intl pluralx.c )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
 
-processCmd "make -C src msgfmt"
+CMD=( make -C src msgfmt )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
 
-processCmd "make -C src msgmerge"
+CMD=( make -C src msgmerge )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
 
-processCmd "make -C src xgettext"
+CMD=( make -C src xgettext )
+processCmd
 [ $? -gt 0 ] && mPop && return 1
 
 mPop
