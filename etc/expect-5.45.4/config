@@ -2,13 +2,6 @@ log "PKG|INFO|Making backup of configure." t
 CMD=( cp -v configure{,.orig} )
 processCmd
 [ $? -gt 0 ] && return 1
-if [ $DEVMODE -eq 0 ]; then
-    promptUser "Check result of previous command. Continue? Y/n"
-    read U
-    case $U in
-        n) return 1 ;;
-    esac
-fi
 
 log "PKG|INFO|Forcing Expect's configure script to use /bin/stty." t
 sed 's:/usr/local/bin:/bin:' configure.orig > configure

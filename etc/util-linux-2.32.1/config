@@ -1,12 +1,5 @@
 CMD=( ./configure --prefix=/tools --without-python --disable-makeinstall-chown --without-systemdsystemunitdir --without-ncurses PKG_CONFIG="" )
 processCmd
-if [ $DEVMODE -eq 0 ]; then
-    promptUser "Check last command. Continue? Yn"
-    read U
-    case $U in
-        n) return 1 ;;
-    esac
-fi
 
 [ $? -gt 0 ] && return 1
 return 0

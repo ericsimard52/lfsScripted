@@ -1,4 +1,7 @@
 CMD=( make install )
 processCmd
 [ $? -gt 0 ] && return 1
+CMD=( ln -s libncursesw.so /tools/lib/libncurses.so )
+processCmd
+[ $? -gt 0 ] && return 1
 return 0

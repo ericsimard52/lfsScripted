@@ -60,13 +60,6 @@ fi
 if [ -h $LFS/dev/shm ]; then
     CMD=( sudo mkdir -pv "$LFS/$(readlink $LFS/dev/shm)" )
     processCmd
-    if [ $DEVMODE -eq 0 ]; then
-        promptUser "Check previous command mkdir -pv $LFS/$(readlink $LFS/dev/shm). Continue? Yn"
-        read U
-        case $U in
-            n) return 1 ;;
-        esac
-    fi
 fi
 
 

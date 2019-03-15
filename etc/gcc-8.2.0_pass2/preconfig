@@ -9,13 +9,6 @@ for file in gcc/config/{linux,i386/linux{,64}}.h
 do
     CMD=( cp -uv $file{,.orig} )
     processCmd
-    if [ $DEVMODE -eq 0 ]; then
-        promptUser "Check previous commmand. Continue? Yn"
-        read U
-        case $U in
-            n) return 1 ;;
-        esac
-    fi
     sed -e 's@/lib\(64\)\?\(32\)\?/ld@/tools&@g' \
         -e 's@/usr@/tools@g' $file.orig > $file
     echo '
@@ -39,11 +32,11 @@ log "PKG|INFO|Unpacking extra packages." t
 
 
 log "PKG|INFO|Uncompress mpfr." t
-CMD=( tar -xf ../mpfr-4.0.1.tar.xz )
+CMD=( tar -xf ../mpfr-4.0.2.tar.xz )
 processCmd
 [ $? -gt 0 ] && return 1
 
-CMD=( mv -v mpfr-4.0.1 mpfr )
+CMD=( mv -v mpfr-4.0.2 mpfr )
 processCmd
 [ $? -gt 0 ] && return 1
 

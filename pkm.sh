@@ -173,6 +173,10 @@ function readConfig {
                 LFSUSERHOME=${PARAM[1]}
                 log "NULL|INFO|Set param lfsUserHome:$LFSUSERHOME" t
                 ;;
+            devMode)
+                DEVMODE=${PARAM[1]}
+                log "NULL|INFO|Set param devMode:$DEVMODE" t
+                ;;
             "#") continue;;
             *) continue;;
         esac
@@ -280,10 +284,17 @@ function checkSources {
 
     log "GEN|INFO|Do we have wget.list?" t
     if [ ! -f $CONFBASE/wget.list ]; then
-        log "GEN|WARNING|wget.list not found, fetching." t
-        CMD=( sudo wget -v -O $CONFBASE/wget.list -v "http://www.linuxfromscratch.org/lfs/view/stable/wget-list" )
-        processCmd
-        [ $? -gt 0 ] && quitPkm 1 "Unable to fetch wget.list. I will crash if I don't quit now"
+        if [ -f $DEVBASE/etc/wget.list ]; then
+            log "NULL|INFO|Taking local wget.list" t
+            CMD=( sudo cp -v $DEVBASE/etc/wget.list $CONFBASE/ )
+            processCmd
+            [ $? -gt 0 ] && return 1
+        else
+            log "GEN|WARNING|wget.list not found, fetching." t
+            CMD=( sudo wget -v -O $CONFBASE/wget.list -v "http://www.linuxfromscratch.org/lfs/view/stable/wget-list" )
+            processCmd
+            [ $? -gt 0 ] && quitPkm 1 "Unable to fetch wget.list. I will crash if I don't quit now"
+        fi
     fi
     log "GEN|INFO|Checking source packages." t
     for line in `cat $CONFBASE/wget.list`; do
@@ -303,10 +314,18 @@ function checkSources {
 
     log "GEN|INFO|Do we have md5sums?" t
     if [ ! -f $CONFBASE/md5sums ]; then
-        log "GEN|WARNING|md5sums not found, fetching." t
-        CMD=( sudo wget -v -O $CONFBASE/md5sums -v "http://www.linuxfromscratch.org/lfs/view/stable/md5sums" )
-        processCmd
-        [ $? -gt 0 ] && log "GEN|WARNING|Unable to fetch md5sums check list. Unsure how the program will behave at check time." t
+        if [ -f $DEVBASE/etc/md5sums ]; then
+            log "NULL|INFO|Taking local wget.list" t
+            CMD=( sudo cp -v $DEVBASE/etc/md5sums $CONFBASE/ )
+            processCmd
+            [ $? -gt 0 ] && return 1
+        else
+
+            log "GEN|WARNING|md5sums not found, fetching." t
+            CMD=( sudo wget -v -O $CONFBASE/md5sums -v "http://www.linuxfromscratch.org/lfs/view/stable/md5sums" )
+            processCmd
+            [ $? -gt 0 ] && log "GEN|WARNING|Unable to fetch md5sums check list. Unsure how the program will behave at check time." t
+        fi
     fi
 
     # Touch dummy pkg
@@ -739,15 +758,12 @@ function loadPkg {
     done < $GENCONFIGFILE
 
 
-    log "GEN|INFO|Check if source package exists: $SD/$tf" t
+    log "GEN|INFO|Check if source package exists: $SD/$TF" t
     # Check if source package exists
     ## What is this
     if [ ! -f $SD/$TF ]; then
-        log "PKG|WARNING|Why are we doing this?" t
-        log "{GEN,ERR}|WARNING|Package $tf not found in source $SD, creating." t
-        CMD=( install -vm664 $DEVBASE/sources/$TF $SD/$TF )
-        processCmd
-        return
+        log "PKG|WARNING|Package not found, something is wrong." t
+        return 1
     fi
 
     EXT="${TF##*.}"
@@ -933,6 +949,16 @@ function processCmd {
 
     fi
     unset CMD
+
+    if [ $DEVMODE -eq 0 ]; then
+        promptUser "\e[31mDevmode is on.\e[0m Review previous commands: \e[93m$cmd_str\e[0m. Continue? Y/n"
+        read DU
+        case $DU in
+            n|N)
+                return 1
+                ;;
+        esac
+    fi
     return 0
 
 }
@@ -1231,6 +1257,12 @@ function evalPrompt {
                 return
             fi
             DEBUG=$2
+            ;;
+        devmode)
+            if [[ "$2" = "" ]]; then
+                return
+            fi
+            DEVMODE=$2
             ;;
         reload)
             readConfig

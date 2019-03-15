@@ -2,47 +2,19 @@ log "GEN|INFO|Saving space by stripping debugs and unneeded." t
 CMD=( sudo strip --strip-debug /tools/lib/* )
 processCmd
 [ $? -gt 0 ] && log "GEN|WARNING|Stripping debugs failed. This is expected, but check log if you want." t
-if [ $DEVMODE -eq 0 ]; then
-    promptUser "Check last command. Continue? Yn"
-    read U
-    case $U in
-        n) return 1 ;;
-    esac
-fi
 
 CMD=( sudo /usr/bin/strip --strip-unneeded /tools/{,s}bin/* )
 processCmd
 [ $? -gt 0 ] && log "GEN|WARNING|Stripping unneeded failed.  This is expected, but check log if you want." t
-if [ $DEVMODE -eq 0 ]; then
-    promptUser "Check last command. Continue? Yn"
-    read U
-    case $U in
-        n) return 1 ;;
-    esac
-fi
 
 log "GEN|INFO|Removing documentation" t
 CMD=( sudo rm -rf /tools/{,share}/{info,man,doc} )
 processCmd
 [ $? -gt 0 ] && log "GEN|WARNING|Error removing documentations. This is expected, but check log if you want." t
-if [ $DEVMODE -eq 0 ]; then
-    promptUser "Check last command. Continue? Yn"
-    read U
-    case $U in
-        n) return 1 ;;
-    esac
-fi
 
 log "GEN|INFO|Remove unneeded files." t
 CMD=( sudo find /tools/{lib,libexec} -name \*.la -delete )
 processCmd
 [ $? -gt 0 ] && log "GEN|WARNING|Error removing uneeded files. This is expected, but check log if you want." t
-if [ $DEVMODE -eq 0 ]; then
-    promptUser "Check last command. Continue? Yn"
-    read U
-    case $U in
-        n) return 1 ;;
-    esac
-fi
 
 return 0
